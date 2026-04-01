@@ -1,0 +1,38 @@
+package iuh.fit.se.service;
+
+import iuh.fit.se.dto.hoadon.HoaDonRequest;
+import iuh.fit.se.dto.hoadon.HoaDonResponse;
+import iuh.fit.se.dto.chitiethoadon.ChiTietHoaDonRequest;
+import iuh.fit.se.dto.hoadon.ThanhToanRequest;
+import iuh.fit.se.enums.LoaiDonHang;
+import iuh.fit.se.enums.PhuongThucThanhToan;
+
+import java.util.List;
+
+public interface HoaDonService {
+    HoaDonResponse taoDonHangMoi(HoaDonRequest request, List<ChiTietHoaDonRequest> chiTiets);
+
+    HoaDonResponse xuatHoaDonTamTinh(Integer id, ThanhToanRequest request);
+
+    HoaDonResponse xacNhanThanhToan(Integer id, PhuongThucThanhToan phuongThuc);
+
+    void hoanTatDonHang(Integer id);
+
+    HoaDonResponse layChiTiet(Integer idHoaDon);
+
+    void huyHoaDon(Integer idHoaDon);
+
+    HoaDonResponse themMonVaoHoaDon(Integer idHoaDon, List<ChiTietHoaDonRequest> danhSachMoi);
+
+    List<HoaDonResponse> layTatCaHoaDon();
+
+    void capNhatDanhSachThuePhi(Integer idHoaDon, List<Integer> idThuePhis);
+
+    HoaDonResponse yeuCauThanhToan(Integer idHoaDon);
+
+    HoaDonResponse suaChiTietMon(Integer idHoaDon, Integer idChiTiet, ChiTietHoaDonRequest request);
+
+    List<HoaDonResponse> layHoaDonTheoLoai(LoaiDonHang loai);
+
+    HoaDonResponse xoaMonKhoiHoaDon(Integer idHoaDon, Integer idChiTiet);
+}
