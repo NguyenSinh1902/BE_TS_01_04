@@ -6,6 +6,7 @@ import iuh.fit.se.dto.chitiethoadon.ChiTietHoaDonRequest;
 import iuh.fit.se.dto.hoadon.ThanhToanRequest;
 import iuh.fit.se.enums.LoaiDonHang;
 import iuh.fit.se.enums.PhuongThucThanhToan;
+import iuh.fit.se.enums.TrangThaiHoaDon;
 
 import java.util.List;
 
@@ -35,4 +36,6 @@ public interface HoaDonService {
     List<HoaDonResponse> layHoaDonTheoLoai(LoaiDonHang loai);
 
     HoaDonResponse xoaMonKhoiHoaDon(Integer idHoaDon, Integer idChiTiet);
+
+    HoaDonResponse capNhatTrangThai(Integer idHoaDon, TrangThaiHoaDon trangThaiMoi);
 }

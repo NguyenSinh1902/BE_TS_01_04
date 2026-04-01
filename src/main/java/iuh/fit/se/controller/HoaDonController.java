@@ -4,6 +4,7 @@ import iuh.fit.se.dto.chitiethoadon.ChiTietHoaDonRequest;
 import iuh.fit.se.dto.hoadon.*;
 import iuh.fit.se.enums.LoaiDonHang;
 import iuh.fit.se.enums.PhuongThucThanhToan;
+import iuh.fit.se.enums.TrangThaiHoaDon;
 import iuh.fit.se.service.HoaDonService;
 import jakarta.validation.Valid;
 import org.springframework.http.HttpStatus;
@@ -101,5 +102,12 @@ public class HoaDonController {
             @PathVariable Integer id,
             @PathVariable Integer idChiTiet) {
         return ResponseEntity.ok(hoaDonService.xoaMonKhoiHoaDon(id, idChiTiet));
+    }
+
+    @PatchMapping("/{id}/trang-thai")
+    public ResponseEntity<HoaDonResponse> capNhatTrangThai(
+            @PathVariable Integer id,
+            @RequestParam TrangThaiHoaDon trangThai) {
+        return ResponseEntity.ok(hoaDonService.capNhatTrangThai(id, trangThai));
     }
 }

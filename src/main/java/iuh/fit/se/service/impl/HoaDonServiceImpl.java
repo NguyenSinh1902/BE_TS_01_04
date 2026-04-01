@@ -218,6 +218,29 @@ public class HoaDonServiceImpl implements HoaDonService {
 
     @Override
     @Transactional
+    public HoaDonResponse capNhatTrangThai(Integer idHoaDon, TrangThaiHoaDon trangThaiMoi) {
+        HoaDon hd = hoaDonRepository.findById(idHoaDon)
+                .orElseThrow(() -> new ResourceNotFoundException("Hóa đơn không tồn tại"));
+
+        // Logic bảo vệ: Nếu đơn đã HOAN_TAT hoặc DA_HUY thì không cho đổi lung tung nữa
+        if (hd.getTrangThai() == TrangThaiHoaDon.HOAN_TAT || hd.getTrangThai() == TrangThaiHoaDon.DA_HUY) {
+            throw new BadRequestException("Hóa đơn đã đóng hoặc đã hủy, không thể thay đổi trạng thái!");
+        }
+
+        // Cập nhật trạng thái
+        hd.setTrangThai(trangThaiMoi);
+
+        // Một số logic đi kèm nếu cần (Ví dụ: nếu thu ngân tự bấm HOAN_TAT thì giải phóng bàn luôn)
+        if (trangThaiMoi == TrangThaiHoaDon.HOAN_TAT && hd.getPhieuDatBan() != null) {
+            phieuDatBanService.hoanTatPhieu(hd.getPhieuDatBan().getIdPhieuDat());
+        }
+
+        hoaDonRepository.save(hd);
+        return layChiTiet(idHoaDon);
+    }
+
+    @Override
+    @Transactional
     public void huyHoaDon(Integer id) {
         HoaDon hd = hoaDonRepository.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException("Hóa đơn không tồn tại"));
