@@ -22,7 +22,9 @@ import tools.jackson.databind.ObjectMapper;
 
 import java.math.BigDecimal;
 import java.math.RoundingMode;
+import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.time.LocalTime;
 import java.time.format.DateTimeFormatter;
 import java.util.*;
 import java.util.stream.Collectors;
@@ -74,6 +76,20 @@ public class HoaDonServiceImpl implements HoaDonService {
     @Transactional(readOnly = true)
     public List<HoaDonResponse> layHoaDonTheoLoai(LoaiDonHang loai) {
         return hoaDonRepository.findByLoaiDonHang(loai)
+                .stream()
+                .map(this::mapToResponseFull)
+                .collect(Collectors.toList());
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public List<HoaDonResponse> layHoaDonTrongKhoangNgay(LocalDate tuNgay, LocalDate denNgay) {
+        // 00:00:00 của ngày bắt đầu
+        LocalDateTime start = tuNgay.atStartOfDay();
+        // 23:59:59 của ngày kết thúc
+        LocalDateTime end = denNgay.atTime(LocalTime.MAX);
+
+        return hoaDonRepository.findByDateRange(start, end)
                 .stream()
                 .map(this::mapToResponseFull)
                 .collect(Collectors.toList());
@@ -222,15 +238,12 @@ public class HoaDonServiceImpl implements HoaDonService {
         HoaDon hd = hoaDonRepository.findById(idHoaDon)
                 .orElseThrow(() -> new ResourceNotFoundException("Hóa đơn không tồn tại"));
 
-        // Logic bảo vệ: Nếu đơn đã HOAN_TAT hoặc DA_HUY thì không cho đổi lung tung nữa
         if (hd.getTrangThai() == TrangThaiHoaDon.HOAN_TAT || hd.getTrangThai() == TrangThaiHoaDon.DA_HUY) {
             throw new BadRequestException("Hóa đơn đã đóng hoặc đã hủy, không thể thay đổi trạng thái!");
         }
 
-        // Cập nhật trạng thái
         hd.setTrangThai(trangThaiMoi);
 
-        // Một số logic đi kèm nếu cần (Ví dụ: nếu thu ngân tự bấm HOAN_TAT thì giải phóng bàn luôn)
         if (trangThaiMoi == TrangThaiHoaDon.HOAN_TAT && hd.getPhieuDatBan() != null) {
             phieuDatBanService.hoanTatPhieu(hd.getPhieuDatBan().getIdPhieuDat());
         }

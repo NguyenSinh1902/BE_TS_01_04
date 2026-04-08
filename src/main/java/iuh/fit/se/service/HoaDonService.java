@@ -8,6 +8,7 @@ import iuh.fit.se.enums.LoaiDonHang;
 import iuh.fit.se.enums.PhuongThucThanhToan;
 import iuh.fit.se.enums.TrangThaiHoaDon;
 
+import java.time.LocalDate;
 import java.util.List;
 
 public interface HoaDonService {
@@ -26,6 +27,8 @@ public interface HoaDonService {
     HoaDonResponse themMonVaoHoaDon(Integer idHoaDon, List<ChiTietHoaDonRequest> danhSachMoi);
 
     List<HoaDonResponse> layTatCaHoaDon();
+
+    List<HoaDonResponse> layHoaDonTrongKhoangNgay(LocalDate tuNgay, LocalDate denNgay);
 
     void capNhatDanhSachThuePhi(Integer idHoaDon, List<Integer> idThuePhis);
 

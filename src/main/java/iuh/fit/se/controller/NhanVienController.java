@@ -31,6 +31,11 @@ public class NhanVienController {
         return ResponseEntity.ok(nhanVienService.layNhanVienChoDuyet());
     }
 
+    @GetMapping("/van-hanh")
+    public ResponseEntity<List<NhanVienResponse>> getOperatingList() {
+        return ResponseEntity.ok(nhanVienService.layDanhSachVanHanh());
+    }
+
     @GetMapping("/{id}")
     public ResponseEntity<NhanVienResponse> getDetail(@PathVariable Integer id) {
         return ResponseEntity.ok(nhanVienService.layChiTiet(id));

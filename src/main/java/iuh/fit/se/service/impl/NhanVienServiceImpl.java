@@ -49,6 +49,15 @@ public class NhanVienServiceImpl implements NhanVienService {
     }
 
     @Override
+    @Transactional(readOnly = true)
+    public List<NhanVienResponse> layDanhSachVanHanh() {
+        return nhanVienRepository.findOperatingEmployees()
+                .stream()
+                .map(nhanVienMapper::toResponse)
+                .collect(Collectors.toList());
+    }
+
+    @Override
     @Transactional
     public void capNhatTrangThai(Integer id, TrangThaiNhanVien trangThai) {
         NhanVien nv = findActive(id);

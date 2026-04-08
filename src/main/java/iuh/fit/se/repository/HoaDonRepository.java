@@ -7,6 +7,7 @@ import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
+import java.math.BigDecimal;
 import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Optional;
@@ -37,4 +38,38 @@ public interface HoaDonRepository extends JpaRepository<HoaDon, Integer> {
             "WHERE h.loaiDonHang = :loai AND h.trangThai <> 'DA_HUY' " +
             "ORDER BY h.thoiGianTao DESC")
     List<HoaDon> findByLoaiDonHang(@Param("loai") LoaiDonHang loai);
+
+    //Lấy danh sách hóa đơn theo khoảng thời gian
+    @Query("SELECT DISTINCT h FROM HoaDon h " +
+            "LEFT JOIN FETCH h.danhSachChiTiet " +
+            "WHERE h.thoiGianTao BETWEEN :start AND :end " +
+            "ORDER BY h.thoiGianTao DESC")
+    List<HoaDon> findByDateRange(@Param("start") LocalDateTime start, @Param("end") LocalDateTime end);
+
+    //Tính tổng doanh thu
+    @Query("SELECT SUM(h.tongThanhToan) FROM HoaDon h " +
+            "WHERE h.thoiGianTao BETWEEN :start AND :end " +
+            "AND h.trangThai IN (iuh.fit.se.enums.TrangThaiHoaDon.DA_THANH_TOAN, iuh.fit.se.enums.TrangThaiHoaDon.HOAN_TAT)")
+    BigDecimal tinhTongDoanhThu(@Param("start") LocalDateTime start, @Param("end") LocalDateTime end);
+
+    //Đếm số đơn hàng
+    @Query("SELECT COUNT(h) FROM HoaDon h WHERE h.thoiGianTao BETWEEN :start AND :end")
+    long demSoDonHang(@Param("start") LocalDateTime start, @Param("end") LocalDateTime end);
+
+    //Tìm món bán chạy nhất
+    @Query("SELECT ct.bienThe.sanPham.tenSanPham, SUM(ct.soLuong) as total " +
+            "FROM ChiTietHoaDon ct " +
+            "WHERE ct.hoaDon.thoiGianThanhToan BETWEEN :start AND :end " +
+            "GROUP BY ct.bienThe.sanPham.idSanPham " +
+            "ORDER BY total DESC")
+    List<Object[]> findTopProduct(@Param("start") LocalDateTime start, @Param("end") LocalDateTime end);
+
+    //Thống kê doanh thu theo giờ(bieu do)
+    @Query("SELECT HOUR(h.thoiGianThanhToan), SUM(h.tongThanhToan) " +
+            "FROM HoaDon h " +
+            "WHERE h.thoiGianThanhToan BETWEEN :start AND :end " +
+            "AND h.trangThai IN (iuh.fit.se.enums.TrangThaiHoaDon.DA_THANH_TOAN, iuh.fit.se.enums.TrangThaiHoaDon.HOAN_TAT) " +
+            "GROUP BY HOUR(h.thoiGianThanhToan) " +
+            "ORDER BY HOUR(h.thoiGianThanhToan)")
+    List<Object[]> getDoanhThuTheoGio(@Param("start") LocalDateTime start, @Param("end") LocalDateTime end);
 }

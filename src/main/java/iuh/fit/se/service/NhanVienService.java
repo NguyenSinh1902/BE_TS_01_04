@@ -10,6 +10,7 @@ import java.util.List;
 public interface NhanVienService {
     List<NhanVienResponse> layTatCaNhanVien();
     List<NhanVienResponse> layNhanVienChoDuyet();
+    List<NhanVienResponse> layDanhSachVanHanh();
     void capNhatTrangThai(Integer id, TrangThaiNhanVien trangThai);
     void xoaNhanVien(Integer id); // Xóa mềm
     NhanVienResponse layChiTiet(Integer id);

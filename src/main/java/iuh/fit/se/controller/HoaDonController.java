@@ -5,12 +5,15 @@ import iuh.fit.se.dto.hoadon.*;
 import iuh.fit.se.enums.LoaiDonHang;
 import iuh.fit.se.enums.PhuongThucThanhToan;
 import iuh.fit.se.enums.TrangThaiHoaDon;
+import iuh.fit.se.exception.BadRequestException;
 import iuh.fit.se.service.HoaDonService;
 import jakarta.validation.Valid;
+import org.springframework.format.annotation.DateTimeFormat;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
+import java.time.LocalDate;
 import java.util.List;
 
 @RestController
@@ -77,6 +80,18 @@ public class HoaDonController {
     @GetMapping
     public ResponseEntity<List<HoaDonResponse>> getAll() {
         return ResponseEntity.ok(hoaDonService.layTatCaHoaDon());
+    }
+
+    @GetMapping("/loc-theo-khoang-ngay")
+    public ResponseEntity<List<HoaDonResponse>> getByDateRange(
+            @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate tuNgay,
+            @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate denNgay) {
+
+        if (tuNgay.isAfter(denNgay)) {
+            throw new BadRequestException("Ngày bắt đầu không được sau ngày kết thúc!");
+        }
+
+        return ResponseEntity.ok(hoaDonService.layHoaDonTrongKhoangNgay(tuNgay, denNgay));
     }
 
     @PutMapping("/{id}/thue-phi")

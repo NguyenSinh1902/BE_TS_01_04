@@ -23,4 +23,7 @@ public interface NhanVienRepository extends JpaRepository<NhanVien, Integer> {
     List<NhanVien> findByVaiTroAndTrangThaiAndThoiGianXoa(VaiTroNhanVien vaiTro, TrangThaiNhanVien trangThai, Long thoiGianXoa);
 
     List<NhanVien> findByEmailVerifiedTrueAndTrangThaiAndThoiGianXoa(TrangThaiNhanVien trangThai, Long thoiGianXoa);
+
+    @Query("SELECT n FROM NhanVien n WHERE n.trangThai IN (iuh.fit.se.enums.TrangThaiNhanVien.HOAT_DONG, iuh.fit.se.enums.TrangThaiNhanVien.BI_KHOA) AND n.thoiGianXoa = 0")
+    List<NhanVien> findOperatingEmployees();
 }
