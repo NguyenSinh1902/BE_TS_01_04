@@ -5,6 +5,9 @@ import jakarta.validation.constraints.*;
 import java.math.BigDecimal;
 
 public record BienTheRequest(
+
+        Integer idBienThe,
+
         @NotBlank(message = "Tên kích cỡ không được để trống")
         String tenKichCo,
 

@@ -61,8 +61,8 @@ public class HoaDonController {
     @PostMapping("/{id}/xac-nhan-thanh-toan")
     public ResponseEntity<HoaDonResponse> xacNhanThanhToan(
             @PathVariable Integer id,
-            @RequestParam PhuongThucThanhToan phuongThuc) {
-        return ResponseEntity.ok(hoaDonService.xacNhanThanhToan(id, phuongThuc));
+            @RequestBody @Valid ThanhToanRequest request) {
+        return ResponseEntity.ok(hoaDonService.xacNhanThanhToan(id, request));
     }
 
     @PostMapping("/{id}/hoan-tat")
