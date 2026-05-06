@@ -1,0 +1,15 @@
+[33mca43d35[m[33m ([m[1;36mHEAD -> [m[1;32mmain[m[33m, [m[1;31morigin/main[m[33m)[m HEAD@{0}: filter-branch: rewrite
+[33m1110ec2[m HEAD@{1}: commit: remove firebase key (final)
+[33mcfabc22[m HEAD@{2}: commit: clean project (removed firebase key)001
+[33mea279ee[m HEAD@{3}: reset: moving to HEAD~2
+[33mab6729a[m HEAD@{4}: commit: clean commit (no firebase key)01
+[33m07facdc[m HEAD@{5}: reset: moving to HEAD~2
+[33m201704d[m HEAD@{6}: commit: clean commit (no firebase key)
+[33m7b6a621[m HEAD@{7}: reset: moving to HEAD~1
+[33m3ee7e5f[m HEAD@{8}: commit: remove firebase key
+[33m7b6a621[m HEAD@{9}: commit: 0605
+[33m07facdc[m HEAD@{10}: commit: 22 04
+[33mea279ee[m HEAD@{11}: commit: 08/04
+[33m78817cb[m HEAD@{12}: commit: 12/47
+[33mdd20d08[m HEAD@{13}: Branch: renamed refs/heads/master to refs/heads/main
+[33mdd20d08[m HEAD@{15}: commit (initial): first commit
