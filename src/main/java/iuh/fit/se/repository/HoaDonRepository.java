@@ -3,6 +3,7 @@ package iuh.fit.se.repository;
 import iuh.fit.se.entity.HoaDon;
 import iuh.fit.se.enums.LoaiDonHang;
 import iuh.fit.se.enums.TrangThaiHoaDon;
+import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
@@ -72,4 +73,29 @@ public interface HoaDonRepository extends JpaRepository<HoaDon, Integer> {
             "GROUP BY HOUR(h.thoiGianThanhToan) " +
             "ORDER BY HOUR(h.thoiGianThanhToan)")
     List<Object[]> getDoanhThuTheoGio(@Param("start") LocalDateTime start, @Param("end") LocalDateTime end);
+
+    @Query("SELECT h.loaiDonHang, COUNT(h) FROM HoaDon h " +
+            "WHERE h.thoiGianTao BETWEEN :start AND :end AND h.thoiGianXoa = 0 " +
+            "GROUP BY h.loaiDonHang")
+    List<Object[]> countOrderByLoai(@Param("start") LocalDateTime start, @Param("end") LocalDateTime end);
+
+    @Query("SELECT HOUR(h.thoiGianTao), COUNT(h) FROM HoaDon h " +
+            "WHERE h.thoiGianTao BETWEEN :start AND :end AND h.thoiGianXoa = 0 " +
+            "GROUP BY HOUR(h.thoiGianTao)")
+    List<Object[]> countOrderByHour(@Param("start") LocalDateTime start, @Param("end") LocalDateTime end);
+
+    // Top 5 bán chạy nhất
+    // Sửa 'bienTheSanPham' thành 'bienThe' cho đúng với khai báo Entity của bạn
+    @Query("SELECT sp.tenSanPham, SUM(ct.soLuong) as total FROM ChiTietHoaDon ct " +
+            "JOIN ct.bienThe bt JOIN bt.sanPham sp " +
+            "WHERE ct.hoaDon.thoiGianTao BETWEEN :start AND :end AND ct.hoaDon.thoiGianXoa = 0 " +
+            "GROUP BY sp.tenSanPham ORDER BY total DESC")
+    List<Object[]> findTop5BestSellers(@Param("start") LocalDateTime start, @Param("end") LocalDateTime end, Pageable pageable);
+
+    // Top 5 bán chậm nhất
+    @Query("SELECT sp.tenSanPham, SUM(ct.soLuong) as total FROM ChiTietHoaDon ct " +
+            "JOIN ct.bienThe bt JOIN bt.sanPham sp " +
+            "WHERE ct.hoaDon.thoiGianTao BETWEEN :start AND :end AND ct.hoaDon.thoiGianXoa = 0 " +
+            "GROUP BY sp.tenSanPham ORDER BY total ASC")
+    List<Object[]> findTop5WorstSellers(@Param("start") LocalDateTime start, @Param("end") LocalDateTime end, Pageable pageable);
 }

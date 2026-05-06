@@ -9,4 +9,5 @@ public interface ThongKeService {
     DashboardResponse getDashboardHomNay();
 
     List<BieuDoResponse> getBieuDoTheoNgay();
+
 }
