@@ -9,6 +9,7 @@ public record SanPhamResponse(
         String tenSanPham,
         Integer idDanhMuc,
         String tenDanhMuc, // Thêm tên danh mục để UI hiển thị luôn
+        String moTa,
         String duongDanAnh,
         Boolean laTopping,
         List<BienTheResponse> danhSachBienThe

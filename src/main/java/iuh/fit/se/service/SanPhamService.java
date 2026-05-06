@@ -3,14 +3,16 @@ package iuh.fit.se.service;
 import iuh.fit.se.dto.sanpham.HomeResponse;
 import iuh.fit.se.dto.sanpham.SanPhamRequest;
 import iuh.fit.se.dto.sanpham.SanPhamResponse;
+import org.springframework.web.multipart.MultipartFile;
+
 import java.util.List;
 
 public interface SanPhamService {
     List<SanPhamResponse> layTatCa();
 
-    SanPhamResponse taoMoi(SanPhamRequest request);
+    SanPhamResponse taoMoi(SanPhamRequest request, MultipartFile file);
 
-    SanPhamResponse capNhat(Integer id, SanPhamRequest request);
+    SanPhamResponse capNhat(Integer id, SanPhamRequest request, MultipartFile file);
 
     void xoa(Integer id);
 

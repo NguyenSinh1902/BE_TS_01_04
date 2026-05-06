@@ -19,6 +19,9 @@ public class DanhMuc {
     @Column(name = "duong_dan_anh", length = 500)
     private String duongDanAnh;
 
+    @Column(name = "mo_ta", columnDefinition = "TEXT")
+    private String moTa;
+
     @Column(name = "la_he_thong", nullable = false)
     private Boolean laHeThong = false;
 
@@ -31,12 +34,14 @@ public class DanhMuc {
     public DanhMuc() {
     }
 
-    public DanhMuc(Integer idDanhMuc, String tenDanhMuc, String duongDanAnh, Boolean laHeThong, Long thoiGianXoa) {
+    public DanhMuc(Integer idDanhMuc, String tenDanhMuc, String duongDanAnh, String moTa, Boolean laHeThong, Long thoiGianXoa, List<SanPham> danhSachSanPham) {
         this.idDanhMuc = idDanhMuc;
         this.tenDanhMuc = tenDanhMuc;
         this.duongDanAnh = duongDanAnh;
+        this.moTa = moTa;
         this.laHeThong = laHeThong;
         this.thoiGianXoa = thoiGianXoa;
+        this.danhSachSanPham = danhSachSanPham;
     }
 
     public Integer getIdDanhMuc() {
@@ -85,5 +90,13 @@ public class DanhMuc {
 
     public void setDanhSachSanPham(List<SanPham> danhSachSanPham) {
         this.danhSachSanPham = danhSachSanPham;
+    }
+
+    public String getMoTa() {
+        return moTa;
+    }
+
+    public void setMoTa(String moTa) {
+        this.moTa = moTa;
     }
 }

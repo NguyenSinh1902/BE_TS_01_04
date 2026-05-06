@@ -13,10 +13,13 @@ import iuh.fit.se.mapper.BienTheMapper;
 import iuh.fit.se.mapper.SanPhamMapper;
 import iuh.fit.se.repository.DanhMucRepository;
 import iuh.fit.se.repository.SanPhamRepository;
+import iuh.fit.se.service.FirebaseStorageService;
 import iuh.fit.se.service.SanPhamService;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.web.multipart.MultipartFile;
 
+import java.io.IOException;
 import java.util.List;
 import java.util.Objects;
 import java.util.Set;
@@ -29,15 +32,17 @@ public class SanPhamServiceImpl implements SanPhamService {
     private final DanhMucRepository danhMucRepository;
     private final SanPhamMapper sanPhamMapper;
     private final BienTheMapper bienTheMapper;
+    private final FirebaseStorageService firebaseStorageService;
 
     public SanPhamServiceImpl(SanPhamRepository sanPhamRepository,
                               DanhMucRepository danhMucRepository,
                               SanPhamMapper sanPhamMapper,
-                              BienTheMapper bienTheMapper) {
+                              BienTheMapper bienTheMapper, FirebaseStorageService firebaseStorageService) {
         this.sanPhamRepository = sanPhamRepository;
         this.danhMucRepository = danhMucRepository;
         this.sanPhamMapper = sanPhamMapper;
         this.bienTheMapper = bienTheMapper;
+        this.firebaseStorageService = firebaseStorageService;
     }
 
     private SanPham findActive(Integer id) {
@@ -54,7 +59,7 @@ public class SanPhamServiceImpl implements SanPhamService {
 
     @Override
     @Transactional
-    public SanPhamResponse taoMoi(SanPhamRequest request) {
+    public SanPhamResponse taoMoi(SanPhamRequest request, MultipartFile file) { // Thêm file
         if (sanPhamRepository.existsByTenSanPhamAndThoiGianXoa(request.tenSanPham(), 0L)) {
             throw new BadRequestException("Tên sản phẩm '" + request.tenSanPham() + "' đã tồn tại!");
         }
@@ -63,6 +68,18 @@ public class SanPhamServiceImpl implements SanPhamService {
                 .orElseThrow(() -> new ResourceNotFoundException("Danh mục không tồn tại"));
 
         SanPham sanPham = sanPhamMapper.toEntity(request);
+
+        // --- LOGIC UPLOAD ẢNH ---
+        try {
+            if (file != null && !file.isEmpty()) {
+                String urlAnh = firebaseStorageService.uploadFile(file);
+                sanPham.setDuongDanAnh(urlAnh); // Ghi đè URL từ Firebase vào Entity
+            }
+        } catch (IOException e) {
+            throw new BadRequestException("Lỗi khi upload ảnh lên Firebase: " + e.getMessage());
+        }
+        // ------------------------
+
         sanPham.setDanhMuc(dm);
 
         if (sanPham.getDanhSachBienThe() != null) {
@@ -74,52 +91,57 @@ public class SanPhamServiceImpl implements SanPhamService {
 
     @Override
     @Transactional
-    public SanPhamResponse capNhat(Integer id, SanPhamRequest request) {
+    public SanPhamResponse capNhat(Integer id, SanPhamRequest request, MultipartFile file) {
         // 1. Tìm sản phẩm đang hoạt động
         SanPham existingSp = findActive(id);
 
-        // 2. Kiểm tra trùng tên (Nếu đổi tên thì tên mới không được trùng với sản phẩm khác)
+        // 2. Kiểm tra trùng tên
         if (!existingSp.getTenSanPham().equalsIgnoreCase(request.tenSanPham()) &&
                 sanPhamRepository.existsByTenSanPhamAndThoiGianXoa(request.tenSanPham(), 0L)) {
             throw new BadRequestException("Tên sản phẩm '" + request.tenSanPham() + "' đã tồn tại!");
         }
 
-        // 3. Map các thông tin cơ bản (tenSanPham, duongDanAnh, laTopping...)
+        // 3. Map các thông tin cơ bản (tenSanPham, laTopping...)
         sanPhamMapper.updateEntityFromRequest(request, existingSp);
 
-        // 4. Cập nhật Danh mục nếu có thay đổi
+        // 4. XỬ LÝ ẢNH FIREBASE (Phần mới)
+        try {
+            if (file != null && !file.isEmpty()) {
+                String urlAnh = firebaseStorageService.uploadFile(file);
+                existingSp.setDuongDanAnh(urlAnh); // Ghi đè URL mới từ Firebase
+            }
+        } catch (IOException e) {
+            throw new BadRequestException("Lỗi khi cập nhật ảnh lên Firebase: " + e.getMessage());
+        }
+
+        // 5. Cập nhật Danh mục nếu có thay đổi
         if (!existingSp.getDanhMuc().getIdDanhMuc().equals(request.idDanhMuc())) {
             DanhMuc dm = danhMucRepository.findById(request.idDanhMuc())
                     .orElseThrow(() -> new ResourceNotFoundException("Danh mục không tồn tại"));
             existingSp.setDanhMuc(dm);
         }
 
-        // 5. XỬ LÝ DANH SÁCH BIẾN THỂ (PHẦN QUAN TRỌNG NHẤT)
+        // 6. XỬ LÝ DANH SÁCH BIẾN THỂ (Giữ nguyên logic cũ của bạn)
         List<BienTheSanPham> currentList = existingSp.getDanhSachBienThe();
-
-        // Thu thập danh sách ID biến thể mới từ request để phục vụ việc Xóa mềm
         Set<Integer> newIds = request.danhSachBienThe().stream()
                 .map(BienTheRequest::idBienThe)
                 .filter(Objects::nonNull)
                 .collect(Collectors.toSet());
 
-        // A. XỬ LÝ CẬP NHẬT VÀ THÊM MỚI
+        // A. Cập nhật và thêm mới biến thể
         for (BienTheRequest btReq : request.danhSachBienThe()) {
             if (btReq.idBienThe() != null) {
-                // Trường hợp CẬP NHẬT: Tìm trong danh sách hiện tại
                 BienTheSanPham existingBt = currentList.stream()
                         .filter(bt -> bt.getIdBienThe().equals(btReq.idBienThe()))
                         .findFirst()
-                        .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy biến thể ID: " + btReq.idBienThe() + " để cập nhật!"));
+                        .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy biến thể ID: " + btReq.idBienThe()));
 
-                // Cập nhật thông tin vào biến thể cũ
                 existingBt.setTenKichCo(btReq.tenKichCo());
                 existingBt.setGiaBan(btReq.giaBan());
                 existingBt.setPhanTramGiamGia(btReq.phanTramGiamGia() != null ? btReq.phanTramGiamGia() : 0);
                 existingBt.setSoLuongTonKho(btReq.soLuongTonKho() != null ? btReq.soLuongTonKho() : -1);
-                existingBt.setThoiGianXoa(0L); // Đảm bảo nó không bị đánh dấu xóa
+                existingBt.setThoiGianXoa(0L);
             } else {
-                // Trường hợp THÊM MỚI (idBienThe == null)
                 BienTheSanPham btMoi = bienTheMapper.toEntity(btReq);
                 btMoi.setSanPham(existingSp);
                 btMoi.setThoiGianXoa(0L);
@@ -127,17 +149,17 @@ public class SanPhamServiceImpl implements SanPhamService {
             }
         }
 
-        // B. XỬ LÝ XÓA MỀM
+        // B. Xóa mềm các biến thể không còn trong request
         currentList.forEach(bt -> {
             if (bt.getIdBienThe() != null && !newIds.contains(bt.getIdBienThe())) {
                 bt.setThoiGianXoa(System.currentTimeMillis());
             }
         });
 
-        // --- THÊM DÒNG NÀY ĐỂ "LÀM SẠCH" LIST TRƯỚC KHI TRẢ VỀ ---
+        // Làm sạch list trước khi trả về
         existingSp.getDanhSachBienThe().removeIf(bt -> bt.getThoiGianXoa() > 0);
 
-        // 6. Lưu và trả về
+        // 7. Lưu và trả về
         SanPham savedSp = sanPhamRepository.save(existingSp);
         return sanPhamMapper.toResponse(savedSp);
     }

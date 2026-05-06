@@ -10,5 +10,6 @@ public record NhanVienRequest(
         GioiTinh gioiTinh,
         LocalDate ngaySinh,
         @Pattern(regexp = "^0[0-9]{9}$", message = "Số điện thoại không hợp lệ")
-        String soDienThoai
+        String soDienThoai,
+        String avatar
 ) {}

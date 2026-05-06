@@ -17,6 +17,8 @@ import iuh.fit.se.repository.BanRepository;
 import iuh.fit.se.repository.ChiTietDatBanRepository;
 import iuh.fit.se.repository.HoaDonRepository;
 import iuh.fit.se.repository.PhieuDatBanRepository;
+import iuh.fit.se.service.FirebaseMessagingService;
+import iuh.fit.se.service.FirebaseRealtimeService;
 import iuh.fit.se.service.PhieuDatBanService;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.stereotype.Service;
@@ -36,21 +38,24 @@ public class PhieuDatBanServiceImpl implements PhieuDatBanService {
     private final PhieuDatBanMapper phieuDatBanMapper;
     private final BanMapper banMapper;
     private final HoaDonRepository hoaDonRepository;
+    private final FirebaseRealtimeService firebaseRealtimeService;
+    private final FirebaseMessagingService firebaseMessagingService;
 
-    public PhieuDatBanServiceImpl(PhieuDatBanRepository phieuDatBanRepository, ChiTietDatBanRepository chiTietDatBanRepository, BanRepository banRepository, PhieuDatBanMapper phieuDatBanMapper, BanMapper banMapper, HoaDonRepository hoaDonRepository) {
+    public PhieuDatBanServiceImpl(PhieuDatBanRepository phieuDatBanRepository, ChiTietDatBanRepository chiTietDatBanRepository, BanRepository banRepository, PhieuDatBanMapper phieuDatBanMapper, BanMapper banMapper, HoaDonRepository hoaDonRepository, FirebaseRealtimeService firebaseRealtimeService, FirebaseMessagingService firebaseMessagingService) {
         this.phieuDatBanRepository = phieuDatBanRepository;
         this.chiTietDatBanRepository = chiTietDatBanRepository;
         this.banRepository = banRepository;
         this.phieuDatBanMapper = phieuDatBanMapper;
         this.banMapper = banMapper;
         this.hoaDonRepository = hoaDonRepository;
+        this.firebaseRealtimeService = firebaseRealtimeService;
+        this.firebaseMessagingService = firebaseMessagingService;
     }
 
     @Override
     @Transactional
     public PhieuDatBanResponse taoPhieuDatMoi(PhieuDatBanRequest request) {
         PhieuDatBan phieu = phieuDatBanMapper.toEntity(request);
-
         if (request.thoiGianDat().isBefore(LocalDateTime.now().plusMinutes(5))) {
             phieu.setTrangThaiDat(TrangThaiDatBan.DA_DEN);
         } else {
@@ -59,6 +64,7 @@ public class PhieuDatBanServiceImpl implements PhieuDatBanService {
 
         PhieuDatBan savedPhieu = phieuDatBanRepository.save(phieu);
         List<BanResponse> banResponses = new ArrayList<>();
+        List<Ban> listBanThayDoi = new ArrayList<>(); // Danh sách để đẩy realtime
 
         for (Integer idBan : request.danhSachIdBan()) {
             Ban ban = banRepository.findActiveById(idBan)
@@ -75,9 +81,21 @@ public class PhieuDatBanServiceImpl implements PhieuDatBanService {
 
             ban.setTinhTrangBan(savedPhieu.getTrangThaiDat() == TrangThaiDatBan.DA_DEN ?
                     TinhTrangBan.CO_KHACH : TinhTrangBan.DA_DAT);
+
             banRepository.save(ban);
+            listBanThayDoi.add(ban); // Lưu lại bàn đã đổi trạng thái
             banResponses.add(banMapper.toResponse(ban));
         }
+
+        // REALTIME: Cập nhật sơ đồ bàn cho tất cả nhân viên
+        firebaseRealtimeService.updateMultipleBansStatus(listBanThayDoi);
+
+        // THÔNG BÁO ĐẨY: Chỉ gửi cho nhóm nhân viên (Phục vụ & Thu ngân)
+        String title = "Đơn đặt bàn mới!";
+        String body = "Khách " + savedPhieu.getTenKhachHang() + " vừa đặt " + request.danhSachIdBan().size() + " bàn.";
+
+        // Gửi vào topic 'staff' - FE của Thu ngân và Phục vụ sẽ subscribe topic này
+        firebaseMessagingService.sendNotificationToTopic("staff", title, body);
 
         return setBanToResponse(phieuDatBanMapper.toResponse(savedPhieu), banResponses);
     }
@@ -110,6 +128,9 @@ public class PhieuDatBanServiceImpl implements PhieuDatBanService {
 
         banMoi.setTinhTrangBan(TinhTrangBan.CO_KHACH);
         banRepository.save(banMoi);
+
+        // REALTIME: Cập nhật đồng thời cả 2 bàn
+        firebaseRealtimeService.updateMultipleBansStatus(List.of(banCu, banMoi));
     }
 
     @Override
@@ -135,6 +156,7 @@ public class PhieuDatBanServiceImpl implements PhieuDatBanService {
     @Override
     @Transactional
     public void huyPhieu(Integer idPhieu) {
+        // 1. Tìm phiếu và kiểm tra điều kiện (Code cũ của bạn)
         PhieuDatBan phieu = phieuDatBanRepository.findActiveById(idPhieu)
                 .orElseThrow(() -> new ResourceNotFoundException("Phiếu không tồn tại hoặc đã được xử lý"));
 
@@ -144,14 +166,31 @@ public class PhieuDatBanServiceImpl implements PhieuDatBanService {
             throw new BadRequestException("Không thể hủy phiếu vì đã có hóa đơn được tạo. Hãy xử lý hóa đơn trước!");
         }
 
+        // 2. Cập nhật trạng thái phiếu
         phieu.setTrangThaiDat(TrangThaiDatBan.DA_HUY);
 
+        // 3. Giải phóng bàn và chuẩn bị danh sách cho Realtime
         List<ChiTietDatBan> chiTiets = chiTietDatBanRepository.findByPhieuDatBan_IdPhieuDat(idPhieu);
+        List<Ban> bansToUpdate = new ArrayList<>(); // List này để gửi sang Firebase
+
         for (ChiTietDatBan ct : chiTiets) {
             Ban ban = ct.getBan();
-            ban.setTinhTrangBan(TinhTrangBan.TRONG);
+            ban.setTinhTrangBan(TinhTrangBan.TRONG); // Chuyển về TRỐNG
+            bansToUpdate.add(ban);
         }
+
+        // 4. Lưu tất cả thay đổi vào SQL (Quan trọng: dùng saveAll cho List bàn)
+        banRepository.saveAll(bansToUpdate);
         phieuDatBanRepository.save(phieu);
+
+        // 5. REALTIME: Đẩy tín hiệu lên Firebase để các App đổi màu bàn sang XANH
+        firebaseRealtimeService.updateMultipleBansStatus(bansToUpdate);
+
+        // THÔNG BÁO ĐẨY: Báo tin buồn để nhân viên biết bàn đã trống
+        String title = "Hủy phiếu đặt bàn";
+        String body = "Phiếu của khách " + phieu.getTenKhachHang() + " đã bị hủy. Bàn hiện đã trống.";
+
+        firebaseMessagingService.sendNotificationToTopic("staff", title, body);
     }
 
     @Override
@@ -193,19 +232,29 @@ public class PhieuDatBanServiceImpl implements PhieuDatBanService {
     @Override
     @Transactional
     public void hoanTatPhieu(Integer idPhieu) {
+        // 1. Tìm phiếu
         PhieuDatBan phieu = phieuDatBanRepository.findActiveById(idPhieu)
                 .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy phiếu đặt để hoàn tất"));
 
+        // 2. Cập nhật trạng thái phiếu
         phieu.setTrangThaiDat(TrangThaiDatBan.HOAN_TAT);
         phieuDatBanRepository.save(phieu);
 
+        // 3. Giải phóng bàn và chuẩn bị danh sách Realtime
         List<ChiTietDatBan> chiTiets = chiTietDatBanRepository.findByPhieuDatBan_IdPhieuDat(idPhieu);
+        List<Ban> bansToUpdate = new ArrayList<>();
 
         for (ChiTietDatBan ct : chiTiets) {
             Ban ban = ct.getBan();
             ban.setTinhTrangBan(TinhTrangBan.TRONG);
-            banRepository.save(ban);
+            bansToUpdate.add(ban);
         }
+
+        // 4. Lưu vào SQL
+        banRepository.saveAll(bansToUpdate);
+
+        // 5. REALTIME: Cập nhật sơ đồ bàn trên toàn hệ thống
+        firebaseRealtimeService.updateMultipleBansStatus(bansToUpdate);
     }
 
     @Override
@@ -261,13 +310,18 @@ public class PhieuDatBanServiceImpl implements PhieuDatBanService {
 
         List<ChiTietDatBan> chiTiets = chiTietDatBanRepository.findByPhieuDatBan_IdPhieuDat(idPhieu);
         List<BanResponse> banResponses = new ArrayList<>();
+        List<Ban> bansToUpdate = new ArrayList<>();
 
         for (ChiTietDatBan ct : chiTiets) {
             Ban ban = ct.getBan();
             ban.setTinhTrangBan(TinhTrangBan.CO_KHACH);
             banRepository.save(ban);
+            bansToUpdate.add(ban);
             banResponses.add(banMapper.toResponse(ban));
         }
+
+        // REALTIME: Đổi màu bàn từ vàng (Đã đặt) sang đỏ (Có khách)
+        firebaseRealtimeService.updateMultipleBansStatus(bansToUpdate);
 
         return setBanToResponse(phieuDatBanMapper.toResponse(phieu), banResponses);
     }

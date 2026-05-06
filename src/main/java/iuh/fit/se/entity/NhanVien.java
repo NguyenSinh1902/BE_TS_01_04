@@ -28,6 +28,9 @@ public class NhanVien {
     @Column(nullable = false, length = 100)
     private String hoTen;
 
+    @Column(length = 500)
+    private String avatar;
+
     @Enumerated(EnumType.STRING)
     @Column(length = 10)
     private GioiTinh gioiTinh;
@@ -45,6 +48,9 @@ public class NhanVien {
     @Column(nullable = false, length = 20)
     private TrangThaiNhanVien trangThai = TrangThaiNhanVien.CHO_DUYET;
 
+    @Column(name = "fcm_token")
+    private String fcmToken;
+
     @Column(length = 6)
     private String maOtp;
 
@@ -59,16 +65,18 @@ public class NhanVien {
     public NhanVien() {
     }
 
-    public NhanVien(Integer idNhanVien, String email, String matKhau, String hoTen, GioiTinh gioiTinh, LocalDate ngaySinh, String soDienThoai, VaiTroNhanVien vaiTro, TrangThaiNhanVien trangThai, String maOtp, LocalDateTime thoiHanOtp, boolean emailVerified, Long thoiGianXoa) {
+    public NhanVien(Integer idNhanVien, String email, String matKhau, String hoTen, String avatar, GioiTinh gioiTinh, LocalDate ngaySinh, String soDienThoai, VaiTroNhanVien vaiTro, TrangThaiNhanVien trangThai, String fcmToken, String maOtp, LocalDateTime thoiHanOtp, boolean emailVerified, Long thoiGianXoa) {
         this.idNhanVien = idNhanVien;
         this.email = email;
         this.matKhau = matKhau;
         this.hoTen = hoTen;
+        this.avatar = avatar;
         this.gioiTinh = gioiTinh;
         this.ngaySinh = ngaySinh;
         this.soDienThoai = soDienThoai;
         this.vaiTro = vaiTro;
         this.trangThai = trangThai;
+        this.fcmToken = fcmToken;
         this.maOtp = maOtp;
         this.thoiHanOtp = thoiHanOtp;
         this.emailVerified = emailVerified;
@@ -179,5 +187,21 @@ public class NhanVien {
 
     public void setThoiGianXoa(Long thoiGianXoa) {
         this.thoiGianXoa = thoiGianXoa;
+    }
+
+    public String getAvatar() {
+        return avatar;
+    }
+
+    public void setAvatar(String avatar) {
+        this.avatar = avatar;
+    }
+
+    public String getFcmToken() {
+        return fcmToken;
+    }
+
+    public void setFcmToken(String fcmToken) {
+        this.fcmToken = fcmToken;
     }
 }

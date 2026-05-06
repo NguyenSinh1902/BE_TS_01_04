@@ -11,5 +11,6 @@ public record NhanVienResponse(
         LocalDate ngaySinh,
         String soDienThoai,
         VaiTroNhanVien vaiTro,
-        TrangThaiNhanVien trangThai
+        TrangThaiNhanVien trangThai,
+        String avatar
 ) {}

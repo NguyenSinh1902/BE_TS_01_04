@@ -9,10 +9,13 @@ import iuh.fit.se.exception.BadRequestException;
 import iuh.fit.se.exception.ResourceNotFoundException;
 import iuh.fit.se.mapper.NhanVienMapper;
 import iuh.fit.se.repository.NhanVienRepository;
+import iuh.fit.se.service.FirebaseStorageService;
 import iuh.fit.se.service.NhanVienService;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.web.multipart.MultipartFile;
 
+import java.io.IOException;
 import java.util.List;
 import java.util.stream.Collectors;
 
@@ -21,10 +24,12 @@ public class NhanVienServiceImpl implements NhanVienService {
 
     private final NhanVienRepository nhanVienRepository;
     private final NhanVienMapper nhanVienMapper;
+    private final FirebaseStorageService firebaseStorageService;
 
-    public NhanVienServiceImpl(NhanVienRepository nhanVienRepository, NhanVienMapper nhanVienMapper) {
+    public NhanVienServiceImpl(NhanVienRepository nhanVienRepository, NhanVienMapper nhanVienMapper, FirebaseStorageService firebaseStorageService) {
         this.nhanVienRepository = nhanVienRepository;
         this.nhanVienMapper = nhanVienMapper;
+        this.firebaseStorageService = firebaseStorageService;
     }
 
     private NhanVien findActive(Integer id) {
@@ -85,15 +90,25 @@ public class NhanVienServiceImpl implements NhanVienService {
 
     @Override
     @Transactional
-    public NhanVienResponse capNhatThongTin(Integer id, NhanVienRequest request) {
+    public NhanVienResponse capNhatThongTin(Integer id, NhanVienRequest request, MultipartFile file) {
         NhanVien nv = findActive(id);
 
+        // Kiểm tra trùng số điện thoại
         if (!nv.getSoDienThoai().equals(request.soDienThoai()) &&
                 nhanVienRepository.existsBySoDienThoaiAndThoiGianXoa(request.soDienThoai(), 0L)) {
             throw new BadRequestException("Số điện thoại mới đã được sử dụng bởi nhân viên khác!");
         }
 
         nhanVienMapper.updateEntityFromRequest(request, nv);
+
+        try {
+            if (file != null && !file.isEmpty()) {
+                String urlAvatar = firebaseStorageService.uploadFile(file);
+                nv.setAvatar(urlAvatar);
+            }
+        } catch (IOException e) {
+            throw new BadRequestException("Lỗi khi upload avatar lên Firebase: " + e.getMessage());
+        }
 
         return nhanVienMapper.toResponse(nhanVienRepository.save(nv));
     }

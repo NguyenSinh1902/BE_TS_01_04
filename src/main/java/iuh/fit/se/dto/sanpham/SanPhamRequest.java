@@ -11,6 +11,7 @@ public record SanPhamRequest(
         @NotNull(message = "Phải chọn danh mục cho sản phẩm")
         Integer idDanhMuc,
 
+        String moTa,
         String duongDanAnh,
         Boolean laTopping,
         List<BienTheRequest> danhSachBienThe

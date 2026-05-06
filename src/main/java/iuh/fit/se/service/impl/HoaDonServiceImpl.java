@@ -1,5 +1,7 @@
 package iuh.fit.se.service.impl;
 
+import com.google.firebase.database.DatabaseReference;
+import com.google.firebase.database.FirebaseDatabase;
 import iuh.fit.se.dto.chitiethoadon.ChiTietHoaDonRequest;
 import iuh.fit.se.dto.chitiethoadon.ChiTietHoaDonResponse;
 import iuh.fit.se.dto.chitiethoadon.ToppingResponse;
@@ -10,10 +12,7 @@ import iuh.fit.se.enums.*;
 import iuh.fit.se.exception.*;
 import iuh.fit.se.mapper.HoaDonMapper;
 import iuh.fit.se.repository.*;
-import iuh.fit.se.service.HoaDonService;
-import iuh.fit.se.service.KhachHangService;
-import iuh.fit.se.service.KhuyenMaiService;
-import iuh.fit.se.service.PhieuDatBanService;
+import iuh.fit.se.service.*;
 import org.springframework.data.domain.Sort;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -46,8 +45,10 @@ public class HoaDonServiceImpl implements HoaDonService {
     private final SanPhamRepository sanPhamRepository;
     private final ObjectMapper objectMapper = new ObjectMapper();
     private final ThuePhiRepository thuePhiRepository;
+    private final FirebaseRealtimeService firebaseRealtimeService;
+    private final FirebaseMessagingService firebaseMessagingService;
 
-    public HoaDonServiceImpl(HoaDonRepository hoaDonRepository, PhieuDatBanRepository phieuDatBanRepository, NhanVienRepository nhanVienRepository, KhachHangRepository khachHangRepository, BienTheSanPhamRepository bienTheRepository, KhachHangService khachHangService, HoaDonMapper hoaDonMapper, KhuyenMaiService khuyenMaiService, KhuyenMaiRepository khuyenMaiRepository, PhieuDatBanService phieuDatBanService, ChiTietDatBanRepository chiTietDatBanRepository, SanPhamRepository sanPhamRepository, ThuePhiRepository thuePhiRepository) {
+    public HoaDonServiceImpl(HoaDonRepository hoaDonRepository, PhieuDatBanRepository phieuDatBanRepository, NhanVienRepository nhanVienRepository, KhachHangRepository khachHangRepository, BienTheSanPhamRepository bienTheRepository, KhachHangService khachHangService, HoaDonMapper hoaDonMapper, KhuyenMaiService khuyenMaiService, KhuyenMaiRepository khuyenMaiRepository, PhieuDatBanService phieuDatBanService, ChiTietDatBanRepository chiTietDatBanRepository, SanPhamRepository sanPhamRepository, ThuePhiRepository thuePhiRepository, FirebaseRealtimeService firebaseRealtimeService, FirebaseMessagingService firebaseMessagingService) {
         this.hoaDonRepository = hoaDonRepository;
         this.phieuDatBanRepository = phieuDatBanRepository;
         this.nhanVienRepository = nhanVienRepository;
@@ -61,6 +62,8 @@ public class HoaDonServiceImpl implements HoaDonService {
         this.chiTietDatBanRepository = chiTietDatBanRepository;
         this.sanPhamRepository = sanPhamRepository;
         this.thuePhiRepository = thuePhiRepository;
+        this.firebaseRealtimeService = firebaseRealtimeService;
+        this.firebaseMessagingService = firebaseMessagingService;
     }
 
     @Override
@@ -128,6 +131,12 @@ public class HoaDonServiceImpl implements HoaDonService {
         tinhToanTaiChinh(hd);
 
         HoaDon savedHd = hoaDonRepository.save(hd);
+
+        // REALTIME: Đẩy đơn mới lên màn hình Thu ngân/Bếp
+        updateOrderRealtime(savedHd);
+
+        // THÔNG BÁO: Báo cho topic 'staff' là có đơn hàng mới cần làm
+        firebaseMessagingService.sendNotificationToTopic("staff", "Đơn hàng mới", "Bàn " + getTenBans(savedHd) + " vừa gọi món.");
         return this.layChiTiet(savedHd.getIdHoaDon());
     }
 
@@ -244,11 +253,26 @@ public class HoaDonServiceImpl implements HoaDonService {
 
         hd.setTrangThai(trangThaiMoi);
 
+        // 1. Nếu hoàn tất hóa đơn -> Giải phóng bàn (Realtime Database)
         if (trangThaiMoi == TrangThaiHoaDon.HOAN_TAT && hd.getPhieuDatBan() != null) {
             phieuDatBanService.hoanTatPhieu(hd.getPhieuDatBan().getIdPhieuDat());
         }
 
+        // 2. THÔNG BÁO ĐẨY: Nếu món đã pha chế xong
+        if (trangThaiMoi == TrangThaiHoaDon.CHO_LAY_MON) {
+            String fcmTokenNhanVien = hd.getNhanVien().getFcmToken();
+            String title = "☕ Món đã xong!";
+            String body = "Đơn hàng tại bàn " + getTenBans(hd) + " đã pha chế xong. Hãy tới quầy lấy món!";
+
+            // Gửi đích danh cho nhân viên phục vụ đơn này
+            firebaseMessagingService.sendNotification(fcmTokenNhanVien, title, body);
+        }
+
         hoaDonRepository.save(hd);
+
+        // 3. REALTIME: Cập nhật trạng thái đơn hàng để các máy khác thấy ngay
+        updateOrderRealtime(hd);
+
         return layChiTiet(idHoaDon);
     }
 
@@ -451,11 +475,30 @@ public class HoaDonServiceImpl implements HoaDonService {
 
         hd.setThongTinChiTiet(taoSnapshotText(hd));
 
+        // 6. TỰ ĐỘNG GIẢI PHÓNG BÀN (REALTIME DATABASE)
+        // Nếu là đơn tại bàn, gọi hàm hoanTatPhieu để đổi màu bàn sang XANH trên sơ đồ
+        if (hd.getPhieuDatBan() != null) {
+            phieuDatBanService.hoanTatPhieu(hd.getPhieuDatBan().getIdPhieuDat());
+        }
+
         if (hd.getLoaiDonHang() == LoaiDonHang.MANG_VE) {
             hd.setTrangThai(TrangThaiHoaDon.HOAN_TAT);
         }
 
-        return mapToResponseFull(hoaDonRepository.save(hd));
+        // 7. Lưu vào SQL
+        HoaDon finalHd = hoaDonRepository.save(hd);
+
+        // 8. CẬP NHẬT TRẠNG THÁI ĐƠN HÀNG REALTIME
+        // Để App Thu ngân/Quản lý cập nhật lại danh sách đơn hàng mà không cần F5
+        updateOrderRealtime(finalHd);
+
+        // 9. THÔNG BÁO ĐẨY (FCM)
+        // Báo cho Admin/Quản lý biết vừa có doanh thu mới
+        firebaseMessagingService.sendNotificationToTopic("admin",
+                "Thanh toán thành công",
+                "Hóa đơn #" + finalHd.getIdHoaDon() + " đã thu: " + String.format("%,.0f", finalHd.getTongThanhToan()) + " VNĐ");
+
+        return mapToResponseFull(finalHd);
     }
 
     @Override
@@ -712,5 +755,39 @@ public class HoaDonServiceImpl implements HoaDonService {
         hd.setTongThanhToan(tongCuoi.compareTo(BigDecimal.ZERO) < 0
                 ? BigDecimal.ZERO
                 : tongCuoi.setScale(2, RoundingMode.HALF_UP));
+    }
+
+    // 1. Hàm lấy danh sách tên bàn từ hóa đơn để hiển thị trong nội dung thông báo
+    private String getTenBans(HoaDon hd) {
+        if (hd.getPhieuDatBan() == null) return "Mang về";
+        return chiTietDatBanRepository.findByPhieuDatBan_IdPhieuDat(hd.getPhieuDatBan().getIdPhieuDat())
+                .stream()
+                .map(ct -> ct.getBan().getTenBan())
+                .collect(Collectors.joining(", "));
+    }
+
+    // 2. Hàm cập nhật trạng thái đơn hàng lên Firebase Realtime Database
+    private void updateOrderRealtime(HoaDon hd) {
+        try {
+            DatabaseReference ref = FirebaseDatabase.getInstance().getReference("orders/" + hd.getIdHoaDon());
+
+            Map<String, Object> data = new HashMap<>();
+            data.put("idHoaDon", hd.getIdHoaDon());
+            data.put("trangThai", hd.getTrangThai().name());
+
+            // SỬA TẠI ĐÂY: Chuyển BigDecimal thành double
+            if (hd.getTongThanhToan() != null) {
+                data.put("tongThanhToan", hd.getTongThanhToan().doubleValue());
+            } else {
+                data.put("tongThanhToan", 0.0);
+            }
+
+            data.put("lastUpdate", System.currentTimeMillis());
+
+            ref.setValueAsync(data);
+            System.out.println(">>> Đã cập nhật Realtime cho hóa đơn: " + hd.getIdHoaDon());
+        } catch (Exception e) {
+            System.err.println("Lỗi cập nhật Realtime Order: " + e.getMessage());
+        }
     }
 }

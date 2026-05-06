@@ -6,9 +6,12 @@ import iuh.fit.se.dto.sanpham.SanPhamResponse;
 import iuh.fit.se.service.SanPhamService;
 import jakarta.validation.Valid;
 import org.springframework.http.HttpStatus;
+import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.web.multipart.MultipartFile;
 
+import java.io.IOException;
 import java.util.List;
 
 @RestController
@@ -27,17 +30,22 @@ public class SanPhamController {
         return ResponseEntity.ok(sanPhamService.layTatCa());
     }
 
-    @PostMapping
-    public ResponseEntity<SanPhamResponse> create(@RequestBody @Valid SanPhamRequest request) {
-        SanPhamResponse response = sanPhamService.taoMoi(request);
+    @PostMapping(consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
+    public ResponseEntity<SanPhamResponse> create(
+            @RequestPart("request") @Valid SanPhamRequest request,
+            @RequestPart(value = "file", required = false) MultipartFile file) throws IOException {
+
+        SanPhamResponse response = sanPhamService.taoMoi(request, file);
         return new ResponseEntity<>(response, HttpStatus.CREATED);
     }
 
-    @PutMapping("/{id}")
+    @PutMapping(value = "/{id}", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
     public ResponseEntity<SanPhamResponse> update(
             @PathVariable Integer id,
-            @RequestBody @Valid SanPhamRequest request) {
-        return ResponseEntity.ok(sanPhamService.capNhat(id, request));
+            @RequestPart("request") @Valid SanPhamRequest request,
+            @RequestPart(value = "file", required = false) MultipartFile file) throws IOException {
+
+        return ResponseEntity.ok(sanPhamService.capNhat(id, request, file));
     }
 
     @DeleteMapping("/{id}")
