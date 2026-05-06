@@ -16,7 +16,7 @@ public interface HoaDonService {
 
     HoaDonResponse xuatHoaDonTamTinh(Integer id, ThanhToanRequest request);
 
-    HoaDonResponse xacNhanThanhToan(Integer id, PhuongThucThanhToan phuongThuc);
+    public HoaDonResponse xacNhanThanhToan(Integer id, ThanhToanRequest request);
 
     void hoanTatDonHang(Integer id);
 

@@ -30,6 +30,9 @@ public class ChiTietHoaDon {
     @Column(name = "gia_thoi_diem_ban", nullable = false, precision = 12, scale = 2)
     private BigDecimal giaThoiDiemBan;
 
+    @Column(name = "phan_tram_giam_gia", nullable = false)
+    private Integer phanTramGiamGia = 0; // Luôn để mặc định là 0 ở đây
+
     @Column(name = "tuy_chon_json", columnDefinition = "json")
     private String tuyChonJson;
 
@@ -42,14 +45,14 @@ public class ChiTietHoaDon {
     public ChiTietHoaDon() {
     }
 
-    public ChiTietHoaDon(Integer idChiTiet, HoaDon hoaDon, BienTheSanPham bienThe, Integer soLuong, BigDecimal giaThoiDiemBan, String tuyChonJson, Set<ChiTietHoaDonTopping> danhSachTopping, Long thoiGianXoa) {
+    public ChiTietHoaDon(Integer idChiTiet, HoaDon hoaDon, BienTheSanPham bienThe, Integer soLuong, BigDecimal giaThoiDiemBan, Integer phanTramGiamGia, String tuyChonJson, Long thoiGianXoa) {
         this.idChiTiet = idChiTiet;
         this.hoaDon = hoaDon;
         this.bienThe = bienThe;
         this.soLuong = soLuong;
         this.giaThoiDiemBan = giaThoiDiemBan;
+        this.phanTramGiamGia = phanTramGiamGia;
         this.tuyChonJson = tuyChonJson;
-        this.danhSachTopping = danhSachTopping;
         this.thoiGianXoa = thoiGianXoa;
     }
 
@@ -91,6 +94,14 @@ public class ChiTietHoaDon {
 
     public void setGiaThoiDiemBan(BigDecimal giaThoiDiemBan) {
         this.giaThoiDiemBan = giaThoiDiemBan;
+    }
+
+    public Integer getPhanTramGiamGia() {
+        return phanTramGiamGia;
+    }
+
+    public void setPhanTramGiamGia(Integer phanTramGiamGia) {
+        this.phanTramGiamGia = phanTramGiamGia;
     }
 
     public String getTuyChonJson() {

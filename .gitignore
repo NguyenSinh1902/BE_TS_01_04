@@ -31,3 +31,7 @@ build/
 
 ### VS Code ###
 .vscode/
+
+
+# Firebase / Google Cloud credentials
+src/main/resources/serviceAccountKey.json

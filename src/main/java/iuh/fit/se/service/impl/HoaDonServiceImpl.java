@@ -387,6 +387,13 @@ public class HoaDonServiceImpl implements HoaDonService {
             throw new BadRequestException("Hóa đơn đã thanh toán, không thể thay đổi thông tin tạm tính!");
         }
 
+        //GÁN KHÁCH HÀNG NẾU CÓ
+        if (request.idKhachHang() != null) {
+            KhachHang kh = khachHangRepository.findById(request.idKhachHang())
+                    .orElseThrow(() -> new NotFoundException("Khách hàng không tồn tại"));
+            hd.setKhachHang(kh);
+        }
+
         capNhatCauHinhGiamGiaVaThuePhi(hd, request);
         tinhToanTaiChinh(hd);
         hd.setTrangThai(TrangThaiHoaDon.CHO_THANH_TOAN);
@@ -396,23 +403,45 @@ public class HoaDonServiceImpl implements HoaDonService {
 
     @Override
     @Transactional
-    public HoaDonResponse xacNhanThanhToan(Integer id, PhuongThucThanhToan phuongThuc) {
-        HoaDon hd = hoaDonRepository.findById(id).orElseThrow();
+    public HoaDonResponse xacNhanThanhToan(Integer id, ThanhToanRequest request) {
+        HoaDon hd = hoaDonRepository.findById(id)
+                .orElseThrow(() -> new NotFoundException("Không tìm thấy hóa đơn id = " + id));
 
-        if (hd.getTrangThai() == TrangThaiHoaDon.DA_THANH_TOAN) {
-            throw new BadRequestException("Hóa đơn này đã được xác nhận thanh toán rồi!");
+        if (hd.getTrangThai() == TrangThaiHoaDon.DA_THANH_TOAN || hd.getTrangThai() == TrangThaiHoaDon.HOAN_TAT) {
+            throw new BadRequestException("Hóa đơn này đã được thanh toán rồi!");
         }
 
-        if (hd.getDiemSuDung() != null && hd.getDiemSuDung() > 0) {
+        // 1. Cập nhật khách hàng
+        if (request.idKhachHang() != null) {
+            KhachHang kh = khachHangRepository.findById(request.idKhachHang())
+                    .orElseThrow(() -> new NotFoundException("Khách hàng không tồn tại"));
+            hd.setKhachHang(kh);
+        }
+
+        // 2. Logic trừ điểm tích lũy
+        if (request.diemSuDung() != null && request.diemSuDung() > 0) {
             KhachHang kh = hd.getKhachHang();
-            kh.setDiemTichLuy(kh.getDiemTichLuy() - hd.getDiemSuDung());
+            if (kh == null) throw new BadRequestException("Khách vãng lai không thể sử dụng điểm!");
+
+            if (kh.getDiemTichLuy() < request.diemSuDung()) {
+                throw new BadRequestException("Khách hàng không đủ điểm để sử dụng!");
+            }
+
+            kh.setDiemTichLuy(kh.getDiemTichLuy() - request.diemSuDung());
+            hd.setDiemSuDung(request.diemSuDung());
             khachHangRepository.save(kh);
         }
 
+        // 3.Tính lại tiền
+        capNhatCauHinhGiamGiaVaThuePhi(hd, request);
+        tinhToanTaiChinh(hd);
+
+        // 4. Cập nhật thông tin thanh toán
         hd.setTrangThai(TrangThaiHoaDon.DA_THANH_TOAN);
-        hd.setPhuongThucThanhToan(phuongThuc);
+        hd.setPhuongThucThanhToan(request.phuongThuc());
         hd.setThoiGianThanhToan(LocalDateTime.now());
 
+        // 5. Tích điểm
         if (hd.getKhachHang() != null) {
             int diemMoi = hd.getTongThanhToan().divide(new BigDecimal("10000"), 0, RoundingMode.DOWN).intValue();
             if (diemMoi > 0) {
@@ -526,13 +555,17 @@ public class HoaDonServiceImpl implements HoaDonService {
                     .findFirst();
 
             if (trungMon.isPresent()) {
-                trungMon.get().setSoLuong(trungMon.get().getSoLuong() + req.soLuong());
+                ChiTietHoaDon existingCt = trungMon.get();
+                existingCt.setSoLuong(existingCt.getSoLuong() + req.soLuong());
+                // Cập nhật lại phần trăm giảm giá mới nhất từ DB nếu cần (tùy nghiệp vụ)
+                existingCt.setPhanTramGiamGia(bt.getPhanTramGiamGia());
             } else {
                 ChiTietHoaDon ct = new ChiTietHoaDon();
                 ct.setHoaDon(hd);
                 ct.setBienThe(bt);
                 ct.setSoLuong(req.soLuong());
                 ct.setGiaThoiDiemBan(bt.getGiaBan());
+                ct.setPhanTramGiamGia(bt.getPhanTramGiamGia()); // Lấy phần trăm giảm giá mới nhất từ biến thể
                 ct.setTuyChonJson(req.tuyChonJson());
 
                 if (req.danhSachIdTopping() != null && !req.danhSachIdTopping().isEmpty()) {
@@ -589,14 +622,31 @@ public class HoaDonServiceImpl implements HoaDonService {
     private void tinhToanTaiChinh(HoaDon hd) {
         BigDecimal tongTienHang = hd.getDanhSachChiTiet().stream()
                 .map(ct -> {
+                    // 1. Lấy giá gốc tại thời điểm bán
                     BigDecimal giaGocMon = ct.getGiaThoiDiemBan();
+
+                    // 2. SỬA TẠI ĐÂY: Kiểm tra null trước khi gán vào biến int
+                    // Nếu null thì coi như giảm giá bằng 0
+                    int phanTramGiam = (ct.getPhanTramGiamGia() != null) ? ct.getPhanTramGiamGia() : 0;
+
+                    // 3. Tính toán giá sau giảm của 1 món
+                    BigDecimal giaSauGiamMon = giaGocMon;
+                    if (phanTramGiam > 0) {
+                        BigDecimal tienGiam = giaGocMon.multiply(BigDecimal.valueOf(phanTramGiam))
+                                .divide(new BigDecimal("100"), 2, RoundingMode.HALF_UP);
+                        giaSauGiamMon = giaGocMon.subtract(tienGiam);
+                    }
+
+                    // 4. Cộng Topping
                     BigDecimal tongGiaTopping = BigDecimal.ZERO;
                     if (ct.getDanhSachTopping() != null && !ct.getDanhSachTopping().isEmpty()) {
                         tongGiaTopping = ct.getDanhSachTopping().stream()
                                 .map(ChiTietHoaDonTopping::getGiaThoiDiemBan)
                                 .reduce(BigDecimal.ZERO, BigDecimal::add);
                     }
-                    return giaGocMon.add(tongGiaTopping).multiply(BigDecimal.valueOf(ct.getSoLuong()));
+
+                    // 5. Nhân với số lượng
+                    return giaSauGiamMon.add(tongGiaTopping).multiply(BigDecimal.valueOf(ct.getSoLuong()));
                 })
                 .reduce(BigDecimal.ZERO, BigDecimal::add)
                 .setScale(2, RoundingMode.HALF_UP);
