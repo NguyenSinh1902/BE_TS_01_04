@@ -30,4 +30,19 @@ public class FirebaseRealtimeServiceImpl implements FirebaseRealtimeService {
             bans.forEach(ban -> updateBanStatus(ban.getIdBan(), ban.getTenBan(), ban.getTinhTrangBan().name()));
         }
     }
+
+    @Override
+    public void updateOrderRealtime(iuh.fit.se.entity.HoaDon hd) {
+        try {
+            DatabaseReference ref = FirebaseDatabase.getInstance().getReference("orders/" + hd.getIdHoaDon());
+            Map<String, Object> data = new HashMap<>();
+            data.put("idHoaDon", hd.getIdHoaDon());
+            data.put("trangThai", hd.getTrangThai().name());
+            data.put("tongThanhToan", hd.getTongThanhToan().doubleValue()); // Chuyển BigDecimal sang double
+            data.put("lastUpdate", System.currentTimeMillis());
+            ref.setValueAsync(data);
+        } catch (Exception e) {
+            System.err.println("Lỗi cập nhật Firebase Order: " + e.getMessage());
+        }
+    }
 }

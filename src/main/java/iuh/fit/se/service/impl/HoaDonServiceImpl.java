@@ -253,6 +253,17 @@ public class HoaDonServiceImpl implements HoaDonService {
 
         hd.setTrangThai(trangThaiMoi);
 
+        // CHẶN: Không cho phép cập nhật các trạng thái nghiệp vụ quan trọng qua hàm này
+        List<TrangThaiHoaDon> forbiddenStates = List.of(
+                TrangThaiHoaDon.DA_THANH_TOAN,
+                TrangThaiHoaDon.HOAN_TAT,
+                TrangThaiHoaDon.DA_HUY
+        );
+
+        if (forbiddenStates.contains(trangThaiMoi)) {
+            throw new BadRequestException("Không thể cập nhật trạng thái này trực tiếp. Vui lòng thực hiện qua chức năng Thanh toán hoặc Hủy đơn!");
+        }
+
         // 1. Nếu hoàn tất hóa đơn -> Giải phóng bàn (Realtime Database)
         if (trangThaiMoi == TrangThaiHoaDon.HOAN_TAT && hd.getPhieuDatBan() != null) {
             phieuDatBanService.hoanTatPhieu(hd.getPhieuDatBan().getIdPhieuDat());

@@ -84,18 +84,27 @@ public interface HoaDonRepository extends JpaRepository<HoaDon, Integer> {
             "GROUP BY HOUR(h.thoiGianTao)")
     List<Object[]> countOrderByHour(@Param("start") LocalDateTime start, @Param("end") LocalDateTime end);
 
-    // Top 5 bán chạy nhất
-    // Sửa 'bienTheSanPham' thành 'bienThe' cho đúng với khai báo Entity của bạn
-    @Query("SELECT sp.tenSanPham, SUM(ct.soLuong) as total FROM ChiTietHoaDon ct " +
-            "JOIN ct.bienThe bt JOIN bt.sanPham sp " +
-            "WHERE ct.hoaDon.thoiGianTao BETWEEN :start AND :end AND ct.hoaDon.thoiGianXoa = 0 " +
-            "GROUP BY sp.tenSanPham ORDER BY total DESC")
+    // 1. TOP 5 BÁN CHẠY NHẤT
+    // Sửa lại logic: Join từ SanPham để đảm bảo lấy đúng cấu trúc
+    @Query("SELECT sp.tenSanPham, SUM(ct.soLuong) as total " +
+            "FROM ChiTietHoaDon ct " +
+            "JOIN ct.bienThe bt " +
+            "JOIN bt.sanPham sp " +
+            "WHERE ct.hoaDon.thoiGianTao BETWEEN :start AND :end " +
+            "AND ct.hoaDon.thoiGianXoa = 0 " +
+            "GROUP BY sp.idSanPham, sp.tenSanPham " +
+            "ORDER BY total DESC")
     List<Object[]> findTop5BestSellers(@Param("start") LocalDateTime start, @Param("end") LocalDateTime end, Pageable pageable);
 
-    // Top 5 bán chậm nhất
-    @Query("SELECT sp.tenSanPham, SUM(ct.soLuong) as total FROM ChiTietHoaDon ct " +
-            "JOIN ct.bienThe bt JOIN bt.sanPham sp " +
-            "WHERE ct.hoaDon.thoiGianTao BETWEEN :start AND :end AND ct.hoaDon.thoiGianXoa = 0 " +
-            "GROUP BY sp.tenSanPham ORDER BY total ASC")
+    // TOP 5 BÁN CHẬM NHẤT (Bản sửa lỗi triệt để)
+    @Query("SELECT sp.tenSanPham, COALESCE(SUM(ct.soLuong), 0) as total " +
+            "FROM SanPham sp " +
+            "LEFT JOIN sp.danhSachBienThe bt " +  // Dùng tên biến trong SanPham, KHÔNG dùng tên Class BienThe
+            "LEFT JOIN ChiTietHoaDon ct ON ct.bienThe = bt " +
+            "  AND ct.hoaDon.thoiGianTao BETWEEN :start AND :end " +
+            "  AND ct.hoaDon.thoiGianXoa = 0 " +
+            "WHERE sp.thoiGianXoa = 0 " +
+            "GROUP BY sp.idSanPham, sp.tenSanPham " +
+            "ORDER BY total ASC")
     List<Object[]> findTop5WorstSellers(@Param("start") LocalDateTime start, @Param("end") LocalDateTime end, Pageable pageable);
 }

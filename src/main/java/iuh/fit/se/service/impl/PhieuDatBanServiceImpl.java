@@ -5,9 +5,11 @@ import iuh.fit.se.dto.phieudatban.PhieuDatBanRequest;
 import iuh.fit.se.dto.phieudatban.PhieuDatBanResponse;
 import iuh.fit.se.entity.Ban;
 import iuh.fit.se.entity.ChiTietDatBan;
+import iuh.fit.se.entity.HoaDon;
 import iuh.fit.se.entity.PhieuDatBan;
 import iuh.fit.se.enums.TinhTrangBan;
 import iuh.fit.se.enums.TrangThaiDatBan;
+import iuh.fit.se.enums.TrangThaiHoaDon;
 import iuh.fit.se.exception.BadRequestException;
 import iuh.fit.se.exception.NotFoundException;
 import iuh.fit.se.exception.ResourceNotFoundException;
@@ -103,33 +105,53 @@ public class PhieuDatBanServiceImpl implements PhieuDatBanService {
     @Override
     @Transactional
     public void doiBan(Integer idPhieu, Integer idBanCu, Integer idBanMoi) {
+        // 1. Kiểm tra phiếu hiện tại
         PhieuDatBan phieu = phieuDatBanRepository.findActiveById(idPhieu)
                 .orElseThrow(() -> new NotFoundException("Phiếu đặt bàn không tồn tại!"));
 
+        // 2. Tìm chi tiết bàn cũ để xóa
         ChiTietDatBan ctCu = chiTietDatBanRepository.findByPhieuDatBan_IdPhieuDat(idPhieu)
                 .stream()
                 .filter(ct -> ct.getBan().getIdBan().equals(idBanCu))
                 .findFirst()
                 .orElseThrow(() -> new BadRequestException("Bàn cũ không thuộc phiếu này!"));
 
+        // 3. Giải phóng bàn cũ
         Ban banCu = ctCu.getBan();
         banCu.setTinhTrangBan(TinhTrangBan.TRONG);
         banRepository.save(banCu);
         chiTietDatBanRepository.delete(ctCu);
 
+        // 4. Kiểm tra và chiếm giữ bàn mới
         Ban banMoi = banRepository.findActiveById(idBanMoi)
                 .orElseThrow(() -> new NotFoundException("Bàn mới không tồn tại!"));
-        if (banMoi.getTinhTrangBan() != TinhTrangBan.TRONG) throw new BadRequestException("Bàn mới đang bận!");
+
+        if (banMoi.getTinhTrangBan() != TinhTrangBan.TRONG)
+            throw new BadRequestException("Bàn mới " + banMoi.getTenBan() + " đang bận!");
 
         ChiTietDatBan ctMoi = new ChiTietDatBan();
-        ctMoi.setPhieuDatBan(ctCu.getPhieuDatBan());
+        ctMoi.setPhieuDatBan(phieu);
         ctMoi.setBan(banMoi);
         chiTietDatBanRepository.save(ctMoi);
 
         banMoi.setTinhTrangBan(TinhTrangBan.CO_KHACH);
         banRepository.save(banMoi);
 
-        // REALTIME: Cập nhật đồng thời cả 2 bàn
+        // 5. CẬP NHẬT HÓA ĐƠN (Dứt điểm lỗi lệch bàn)
+        // Dùng đúng hàm trong Repository của bạn
+        hoaDonRepository.findByPhieuDatBan_IdPhieuDatAndTrangThaiNot(idPhieu, iuh.fit.se.enums.TrangThaiHoaDon.DA_THANH_TOAN)
+                .ifPresent(hd -> {
+                    // Cập nhật lại thông tin text trong bill nếu cần
+                    if (hd.getThongTinChiTiet() != null) {
+                        String billMoi = hd.getThongTinChiTiet().replace(banCu.getTenBan(), banMoi.getTenBan());
+                        hd.setThongTinChiTiet(billMoi);
+                    }
+                    hoaDonRepository.save(hd);
+                    // Gửi realtime báo cho FE là đơn này đã thuộc về bàn mới
+                    firebaseRealtimeService.updateOrderRealtime(hd);
+                });
+
+        // 6. REALTIME: Cập nhật sơ đồ bàn
         firebaseRealtimeService.updateMultipleBansStatus(List.of(banCu, banMoi));
     }
 

@@ -73,19 +73,20 @@ public class ThongKeServiceImpl implements ThongKeService {
             ));
         }
 
-        // 5. BIỂU ĐỒ KHUNG GIỜ CAO ĐIỂM (BAR CHART - Theo ngày)
+        // 5. BIỂU ĐỒ KHUNG GIỜ CAO ĐIỂM (BAR CHART)
         Map<Integer, Long> hourMap = new TreeMap<>();
-        for (int i = 8; i <= 22; i++) hourMap.put(i, 0L);
+        // Khởi tạo 24 giờ để đơn lúc nào cũng có chỗ đứng
+        for (int i = 0; i <= 23; i++) hourMap.put(i, 0L);
 
         List<Object[]> hoursRaw = hoaDonRepository.countOrderByHour(startToday, now);
         for (Object[] row : hoursRaw) {
-            Integer hour = (Integer) row[0];
-            if (hourMap.containsKey(hour)) {
-                hourMap.put(hour, (long) row[1]);
-            }
+            Integer hour = ((Number) row[0]).intValue(); // Ép kiểu an toàn
+            hourMap.put(hour, ((Number) row[1]).longValue());
         }
 
         List<PeakHourResponse> peakHours = hourMap.entrySet().stream()
+                .filter(entry -> entry.getValue() > 0 || (entry.getKey() >= 8 && entry.getKey() <= 22))
+                // Chỉ hiện những giờ có đơn HOẶC giờ mở cửa chính thức cho gọn
                 .map(entry -> new PeakHourResponse(String.format("%02d:00", entry.getKey()), entry.getValue()))
                 .collect(Collectors.toList());
 
@@ -119,7 +120,22 @@ public class ThongKeServiceImpl implements ThongKeService {
 
     @Override
     public List<BieuDoResponse> getBieuDoTheoNgay() {
-        // Giữ nguyên hàm cũ hoặc cập nhật theo logic mới tùy nhu cầu của bạn
-        return new ArrayList<>();
+        LocalDateTime now = LocalDateTime.now();
+        LocalDateTime startToday = LocalDate.now().atStartOfDay();
+
+        List<Object[]> data = hoaDonRepository.getDoanhThuTheoGio(startToday, now);
+
+        Map<Integer, BigDecimal> map = new TreeMap<>();
+        for (int i = 0; i <= 23; i++) map.put(i, BigDecimal.ZERO); // Khởi tạo 24h
+
+        data.forEach(row -> {
+            Integer hour = ((Number) row[0]).intValue();
+            BigDecimal val = (BigDecimal) row[1];
+            map.put(hour, val);
+        });
+
+        return map.entrySet().stream()
+                .map(e -> new BieuDoResponse(String.format("%02d:00", e.getKey()), e.getValue()))
+                .collect(Collectors.toList());
     }
 }
