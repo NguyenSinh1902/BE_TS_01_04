@@ -5,5 +5,5 @@ import iuh.fit.se.dto.goiy.GoiYSanPhamResponse;
 import java.util.List;
 
 public interface GoiYSanPhamService {
-    List<GoiYSanPhamResponse> layGoiYChoSanPham(Integer idSanPhamChinh);
+    List<GoiYSanPhamResponse> layGoiYNgayLapTuc(Integer idSanPhamChinh);
 }

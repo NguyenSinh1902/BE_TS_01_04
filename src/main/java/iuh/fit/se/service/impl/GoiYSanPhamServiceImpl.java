@@ -1,12 +1,11 @@
 package iuh.fit.se.service.impl;
 
 import iuh.fit.se.dto.goiy.GoiYSanPhamResponse;
-import iuh.fit.se.entity.GoiYSanPham;
-import iuh.fit.se.mapper.GoiYSanPhamMapper;
-import iuh.fit.se.repository.GoiYSanPhamRepository;
+import iuh.fit.se.repository.HoaDonRepository;
 import iuh.fit.se.service.GoiYSanPhamService;
+import org.springframework.data.domain.PageRequest;
 import org.springframework.stereotype.Service;
-import org.springframework.transaction.annotation.Transactional;
+
 
 import java.util.List;
 import java.util.stream.Collectors;
@@ -14,23 +13,22 @@ import java.util.stream.Collectors;
 @Service
 public class GoiYSanPhamServiceImpl implements GoiYSanPhamService {
 
-    private final GoiYSanPhamRepository goiYSanPhamRepository;
-    private final GoiYSanPhamMapper goiYSanPhamMapper;
+    private final HoaDonRepository hoaDonRepository;
 
-    public GoiYSanPhamServiceImpl(GoiYSanPhamRepository goiYSanPhamRepository,
-                                  GoiYSanPhamMapper goiYSanPhamMapper) {
-        this.goiYSanPhamRepository = goiYSanPhamRepository;
-        this.goiYSanPhamMapper = goiYSanPhamMapper;
+    public GoiYSanPhamServiceImpl(HoaDonRepository hoaDonRepository) {
+        this.hoaDonRepository = hoaDonRepository;
     }
 
     @Override
-    @Transactional(readOnly = true)
-    public List<GoiYSanPhamResponse> layGoiYChoSanPham(Integer idSanPhamChinh) {
+    public List<GoiYSanPhamResponse> layGoiYNgayLapTuc(Integer idSanPhamChinh) {
+        List<Object[]> results = hoaDonRepository.findTopToppingsForProduct(idSanPhamChinh, PageRequest.of(0, 3));
 
-        List<GoiYSanPham> recommendations = goiYSanPhamRepository.findTopSuggestions(idSanPhamChinh);
-
-        return recommendations.stream()
-                .map(goiYSanPhamMapper::toResponse)
-                .collect(Collectors.toList());
+        return results.stream().map(obj -> new GoiYSanPhamResponse(
+                null,
+                (Integer) obj[0],
+                (String) obj[1],
+                (String) obj[2],
+                1.0f
+        )).collect(Collectors.toList());
     }
 }

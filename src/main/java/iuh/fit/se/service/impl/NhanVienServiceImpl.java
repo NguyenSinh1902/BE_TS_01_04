@@ -17,6 +17,7 @@ import org.springframework.web.multipart.MultipartFile;
 
 import java.io.IOException;
 import java.util.List;
+import java.util.Objects;
 import java.util.stream.Collectors;
 
 @Service
@@ -93,10 +94,13 @@ public class NhanVienServiceImpl implements NhanVienService {
     public NhanVienResponse capNhatThongTin(Integer id, NhanVienRequest request, MultipartFile file) {
         NhanVien nv = findActive(id);
 
-        // Kiểm tra trùng số điện thoại
-        if (!nv.getSoDienThoai().equals(request.soDienThoai()) &&
-                nhanVienRepository.existsBySoDienThoaiAndThoiGianXoa(request.soDienThoai(), 0L)) {
-            throw new BadRequestException("Số điện thoại mới đã được sử dụng bởi nhân viên khác!");
+        if (!Objects.equals(nv.getSoDienThoai(), request.soDienThoai())) {
+
+            if (request.soDienThoai() != null && !request.soDienThoai().trim().isEmpty()) {
+                if (nhanVienRepository.existsBySoDienThoaiAndThoiGianXoa(request.soDienThoai(), 0L)) {
+                    throw new BadRequestException("Số điện thoại mới đã được sử dụng bởi nhân viên khác!");
+                }
+            }
         }
 
         nhanVienMapper.updateEntityFromRequest(request, nv);

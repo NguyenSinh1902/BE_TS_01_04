@@ -129,4 +129,14 @@ public class KhachHang {
     public void setThoiGianXoa(Long thoiGianXoa) {
         this.thoiGianXoa = thoiGianXoa;
     }
+
+    public void capNhatHangThanhVien() {
+        if (this.tongDiemDaTichLuy >= 1000) {
+            this.hangThanhVien = HangThanhVien.VANG;
+        } else if (this.tongDiemDaTichLuy >= 400) {
+            this.hangThanhVien = HangThanhVien.BAC;
+        } else {
+            this.hangThanhVien = HangThanhVien.MOI;
+        }
+    }
 }

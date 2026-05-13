@@ -14,5 +14,6 @@ public record PhieuDatBanResponse(
         Integer soLuongNguoi,
         TrangThaiDatBan trangThaiDat,
         String ghiChu,
+        String tenNhanVienPhucVu,
         List<BanResponse> danhSachBan
 ) {}

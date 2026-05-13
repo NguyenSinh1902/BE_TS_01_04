@@ -24,6 +24,9 @@ public record PhieuDatBanRequest(
 
         String ghiChu,
 
+//        @NotNull(message = "Nhân viên phục vụ không được để trống")
+//        Integer idNhanVienPhucVu,
+
         @NotEmpty(message = "Phải chọn ít nhất 1 bàn")
         List<Integer> danhSachIdBan
 ) {}

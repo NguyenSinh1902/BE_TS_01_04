@@ -42,7 +42,11 @@ public class AuthController {
     public ResponseEntity<Map<String, Object>> login(@Valid @RequestBody LoginRequest request) {
         NhanVienResponse nv = authService.login(request);
 
-        String token = jwtUtil.generateToken(nv.email());
+        String token = jwtUtil.generateToken(
+                nv.idNhanVien(),
+                nv.email(),
+                nv.vaiTro().name()
+        );
 
         Map<String, Object> response = new HashMap<>();
         response.put("success", true);

@@ -4,8 +4,8 @@ import iuh.fit.se.enums.LoaiDonHang;
 import jakarta.validation.constraints.*;
 
 public record HoaDonRequest(
-        @NotNull(message = "Nhân viên không được để trống")
-        Integer idNhanVien,
+//        @NotNull(message = "ID Thu ngân không được để trống")
+//        Integer idThuNgan,
         Integer idPhieuDat,
         @NotNull(message = "Loại đơn hàng không được để trống")
         LoaiDonHang loaiDonHang,

@@ -9,9 +9,9 @@ public record ChiTietHoaDonResponse(
         String tenSanPham,
         String tenKichCo,
         Integer soLuong,
-        BigDecimal giaThoiDiemBan,
+        Long giaThoiDiemBan,
         String tuyChonJson,
         List<ToppingResponse> danhSachTopping,
-        BigDecimal thanhTien
+        Long thanhTien
 ) {}
 

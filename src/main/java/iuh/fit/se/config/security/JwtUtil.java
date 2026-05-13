@@ -25,18 +25,24 @@ public class JwtUtil {
         this.key = Keys.hmacShaKeyFor(secretString.getBytes());
     }
 
-    public String generateToken(String email) {
-        return generateToken(email, "USER");
-    }
-
-    public String generateToken(String email, String role) {
+    public String generateToken(Integer idNhanVien, String email, String role) {
         return Jwts.builder()
                 .setSubject(email)
+                .claim("idNhanVien", idNhanVien)
                 .claim("role", role)
                 .setIssuedAt(new Date())
                 .setExpiration(new Date(System.currentTimeMillis() + expirationTime))
                 .signWith(key, SignatureAlgorithm.HS256)
                 .compact();
+    }
+
+    public Integer extractIdNhanVien(String token) {
+        Claims claims = Jwts.parserBuilder()
+                .setSigningKey(key)
+                .build()
+                .parseClaimsJws(token)
+                .getBody();
+        return claims.get("idNhanVien", Integer.class);
     }
 
 

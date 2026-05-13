@@ -12,8 +12,7 @@ public interface ChiTietHoaDonMapper {
     @Mapping(source = "bienThe.idBienThe", target = "idBienThe")
     @Mapping(source = "bienThe.sanPham.tenSanPham", target = "tenSanPham")
     @Mapping(source = "bienThe.tenKichCo", target = "tenKichCo")
-
-    @Mapping(target = "thanhTien", expression = "java(entity.getGiaThoiDiemBan().multiply(java.math.BigDecimal.valueOf(entity.getSoLuong())))")
+    @Mapping(target = "thanhTien", ignore = true)
     ChiTietHoaDonResponse toResponse(ChiTietHoaDon entity);
 
     @Mapping(target = "idChiTiet", ignore = true)

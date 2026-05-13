@@ -11,14 +11,15 @@ public interface HoaDonMapper {
 
     @Mapping(source = "phieuDatBan.idPhieuDat", target = "idPhieuDat")
     @Mapping(target = "danhSachTenBan", ignore = true)
-    @Mapping(source = "nhanVien.hoTen", target = "tenNhanVien")
+    @Mapping(source = "thuNgan.hoTen", target = "tenThuNgan")
+    @Mapping(source = "phieuDatBan.nhanVienPhucVu.hoTen", target = "tenPhucVu")
     @Mapping(source = "khachHang.hoTen", target = "tenKhachHang")
     @Mapping(source = "khuyenMai.maCode", target = "maKhuyenMai")
     HoaDonResponse toResponse(HoaDon entity);
 
     @Mapping(target = "idHoaDon", ignore = true)
     @Mapping(target = "phieuDatBan", ignore = true)
-    @Mapping(target = "nhanVien", ignore = true)
+    @Mapping(target = "thuNgan", ignore = true)
     @Mapping(target = "khachHang", ignore = true)
     @Mapping(target = "khuyenMai", ignore = true)
     @Mapping(target = "danhSachChiTiet", ignore = true)

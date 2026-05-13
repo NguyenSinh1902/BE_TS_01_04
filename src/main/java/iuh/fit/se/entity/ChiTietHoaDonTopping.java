@@ -25,6 +25,8 @@ public class ChiTietHoaDonTopping {
 
     @Column(nullable = false, precision = 12, scale = 2)
     private BigDecimal giaThoiDiemBan;
+
+
     public ChiTietHoaDonTopping() {
     }
 

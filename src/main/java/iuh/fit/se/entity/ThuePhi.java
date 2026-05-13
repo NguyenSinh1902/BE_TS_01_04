@@ -1,5 +1,6 @@
 package iuh.fit.se.entity;
 
+import iuh.fit.se.enums.LoaiGiaTriThuePhi;
 import jakarta.persistence.*;
 import org.hibernate.annotations.SQLRestriction;
 
@@ -17,6 +18,10 @@ public class ThuePhi {
     @Column(nullable = false)
     private Float giaTri;
 
+    @Enumerated(EnumType.STRING)
+    @Column(nullable = false, length = 20)
+    private LoaiGiaTriThuePhi loaiGiaTri = LoaiGiaTriThuePhi.PHAN_TRAM;
+
     @Column(nullable = false)
     private Boolean laMacDinh = false;
 
@@ -26,10 +31,11 @@ public class ThuePhi {
     // Constructor
     public ThuePhi() {}
 
-    public ThuePhi(Integer idThuePhi, String tenThuePhi, Float giaTri, Boolean laMacDinh, Long thoiGianXoa) {
+    public ThuePhi(Integer idThuePhi, String tenThuePhi, Float giaTri, LoaiGiaTriThuePhi loaiGiaTri, Boolean laMacDinh, Long thoiGianXoa) {
         this.idThuePhi = idThuePhi;
         this.tenThuePhi = tenThuePhi;
         this.giaTri = giaTri;
+        this.loaiGiaTri = loaiGiaTri;
         this.laMacDinh = laMacDinh;
         this.thoiGianXoa = thoiGianXoa;
     }
@@ -56,6 +62,14 @@ public class ThuePhi {
 
     public void setGiaTri(Float giaTri) {
         this.giaTri = giaTri;
+    }
+
+    public LoaiGiaTriThuePhi getLoaiGiaTri() {
+        return loaiGiaTri;
+    }
+
+    public void setLoaiGiaTri(LoaiGiaTriThuePhi loaiGiaTri) {
+        this.loaiGiaTri = loaiGiaTri;
     }
 
     public Boolean getLaMacDinh() {

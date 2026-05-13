@@ -82,12 +82,14 @@ public class KhachHangServiceImpl implements KhachHangService {
     @Override
     @Transactional
     public void congDiem(Integer id, Integer diem) {
+
         KhachHang kh = findActive(id);
+
         kh.setDiemTichLuy(kh.getDiemTichLuy() + diem);
 
-        if (kh.getDiemTichLuy() >= 1000) kh.setHangThanhVien(HangThanhVien.VANG);
-        else if (kh.getDiemTichLuy() >= 500) kh.setHangThanhVien(HangThanhVien.BAC);
-        else if (kh.getDiemTichLuy() >= 200) kh.setHangThanhVien(HangThanhVien.MOI);
+        kh.setTongDiemDaTichLuy(kh.getTongDiemDaTichLuy() + diem);
+
+        kh.capNhatHangThanhVien();
 
         khachHangRepository.save(kh);
     }
@@ -112,13 +114,7 @@ public class KhachHangServiceImpl implements KhachHangService {
         kh.setDiemTichLuy(kh.getDiemTichLuy() + diemCongThem);
         kh.setTongDiemDaTichLuy(kh.getTongDiemDaTichLuy() + diemCongThem);
 
-        if (kh.getTongDiemDaTichLuy() >= 1000) {
-            kh.setHangThanhVien(HangThanhVien.VANG);
-        } else if (kh.getTongDiemDaTichLuy() >= 400) {
-            kh.setHangThanhVien(HangThanhVien.BAC);
-        } else {
-            kh.setHangThanhVien(HangThanhVien.MOI);
-        }
+        kh.capNhatHangThanhVien();
 
         khachHangRepository.save(kh);
     }

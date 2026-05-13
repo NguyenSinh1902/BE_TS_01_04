@@ -13,7 +13,12 @@ import iuh.fit.se.exception.*;
 import iuh.fit.se.mapper.HoaDonMapper;
 import iuh.fit.se.repository.*;
 import iuh.fit.se.service.*;
+import iuh.fit.se.utils.SecurityUtils;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Sort;
+import org.springframework.security.access.AccessDeniedException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import tools.jackson.databind.JsonNode;
@@ -101,12 +106,16 @@ public class HoaDonServiceImpl implements HoaDonService {
     @Override
     @Transactional
     public HoaDonResponse taoDonHangMoi(HoaDonRequest request, List<ChiTietHoaDonRequest> chiTiets) {
+
         HoaDon hd = hoaDonMapper.toEntity(request);
         apDungThuePhiMacDinh(hd);
 
-        NhanVien nv = nhanVienRepository.findById(request.idNhanVien())
-                .orElseThrow(() -> new ResourceNotFoundException("Nhân viên không tồn tại"));
-        hd.setNhanVien(nv);
+//        // LẤY ID TỪ SECURITY CONTEXT
+//        Integer idThuNgan = SecurityUtils.getCurrentIdNhanVien();
+//        if (idThuNgan == null) throw new AccessDeniedException("Vui lòng đăng nhập!");
+//
+//        // Gán thu ngân
+//        hd.setThuNgan(nhanVienRepository.getReferenceById(idThuNgan));
 
         if (request.loaiDonHang() == LoaiDonHang.TAI_BAN) {
             if (request.idPhieuDat() == null) throw new BadRequestException("Đơn tại bàn phải có ID Phiếu đặt!");
@@ -143,7 +152,7 @@ public class HoaDonServiceImpl implements HoaDonService {
     private void apDungThuePhiMacDinh(HoaDon hd) {
         List<ThuePhi> dsMacDinh = thuePhiRepository.findByLaMacDinhTrue();
         for (ThuePhi tp : dsMacDinh) {
-            hd.getDanhSachThuePhi().add(new HoaDonThuePhi(hd, tp.getTenThuePhi(), tp.getGiaTri()));
+            hd.getDanhSachThuePhi().add(new HoaDonThuePhi(hd, tp.getTenThuePhi(), tp.getGiaTri(), tp.getLoaiGiaTri()));
         }
     }
 
@@ -157,7 +166,7 @@ public class HoaDonServiceImpl implements HoaDonService {
         List<ThuePhi> dsChonThem = thuePhiRepository.findAllById(idThuePhisChonThem);
 
         for (ThuePhi tp : dsChonThem) {
-            hd.getDanhSachThuePhi().add(new HoaDonThuePhi(hd, tp.getTenThuePhi(), tp.getGiaTri()));
+            hd.getDanhSachThuePhi().add(new HoaDonThuePhi(hd, tp.getTenThuePhi(), tp.getGiaTri(), tp.getLoaiGiaTri()));
         }
 
         tinhToanTaiChinh(hd);
@@ -186,6 +195,7 @@ public class HoaDonServiceImpl implements HoaDonService {
                 .map(tp -> new HoaDonThuePhiResponse(
                         tp.getTenThuePhi(),
                         tp.getGiaTriTaiThoiDiemBan(),
+                        tp.getLoaiGiaTri(),
                         tp.getSoTienQuyDoi()
                 ))
                 .collect(Collectors.toList());
@@ -209,10 +219,10 @@ public class HoaDonServiceImpl implements HoaDonService {
                     ct.getBienThe().getSanPham().getTenSanPham(),
                     ct.getBienThe().getTenKichCo(),
                     ct.getSoLuong(),
-                    ct.getGiaThoiDiemBan(),
+                    ct.getGiaThoiDiemBan().longValue(),
                     ct.getTuyChonJson(),
                     toppingRes,
-                    thanhTienChuan
+                    thanhTienChuan.longValue()
             );
         }).collect(Collectors.toList());
 
@@ -221,7 +231,8 @@ public class HoaDonServiceImpl implements HoaDonService {
                 res.idPhieuDat(),
                 tenBans,
                 res.loaiDonHang(),
-                res.tenNhanVien(),
+                res.tenThuNgan(),
+                res.tenPhucVu(),
                 res.tenKhachHang(),
                 res.maKhuyenMai(),
                 res.tongTienHang(),
@@ -271,7 +282,7 @@ public class HoaDonServiceImpl implements HoaDonService {
 
         // 2. THÔNG BÁO ĐẨY: Nếu món đã pha chế xong
         if (trangThaiMoi == TrangThaiHoaDon.CHO_LAY_MON) {
-            String fcmTokenNhanVien = hd.getNhanVien().getFcmToken();
+            String fcmTokenNhanVien = hd.getThuNgan().getFcmToken();
             String title = "☕ Món đã xong!";
             String body = "Đơn hàng tại bàn " + getTenBans(hd) + " đã pha chế xong. Hãy tới quầy lấy món!";
 
@@ -418,6 +429,13 @@ public class HoaDonServiceImpl implements HoaDonService {
         HoaDon hd = hoaDonRepository.findById(id)
                 .orElseThrow(() -> new NotFoundException("Không tìm thấy hóa đơn id = " + id));
 
+        // LẤY ID THU NGÂN TỪ TOKEN
+        Integer idThuNgan = SecurityUtils.getCurrentIdNhanVien();
+        if (idThuNgan == null) throw new AccessDeniedException("Chưa đăng nhập thu ngân!");
+
+        // Gán/Cập nhật thu ngân là người vừa nhấn xuất hóa đơn
+        hd.setThuNgan(nhanVienRepository.getReferenceById(idThuNgan));
+
         if (hd.getTrangThai().ordinal() >= TrangThaiHoaDon.DA_THANH_TOAN.ordinal()) {
             throw new BadRequestException("Hóa đơn đã thanh toán, không thể thay đổi thông tin tạm tính!");
         }
@@ -441,6 +459,13 @@ public class HoaDonServiceImpl implements HoaDonService {
     public HoaDonResponse xacNhanThanhToan(Integer id, ThanhToanRequest request) {
         HoaDon hd = hoaDonRepository.findById(id)
                 .orElseThrow(() -> new NotFoundException("Không tìm thấy hóa đơn id = " + id));
+
+        // LẤY ID THU NGÂN TỪ TOKEN
+        Integer idThuNgan = SecurityUtils.getCurrentIdNhanVien();
+        if (idThuNgan == null) throw new AccessDeniedException("Chưa đăng nhập thu ngân!");
+
+        // Gán/Cập nhật thu ngân là người vừa nhấn xuất hóa đơn
+        hd.setThuNgan(nhanVienRepository.getReferenceById(idThuNgan));
 
         if (hd.getTrangThai() == TrangThaiHoaDon.DA_THANH_TOAN || hd.getTrangThai() == TrangThaiHoaDon.HOAN_TAT) {
             throw new BadRequestException("Hóa đơn này đã được thanh toán rồi!");
@@ -561,7 +586,7 @@ public class HoaDonServiceImpl implements HoaDonService {
         hd.getDanhSachThuePhi().clear();
         List<ThuePhi> dsCanApDung = thuePhiRepository.findAllById(finalIds);
         for (ThuePhi tp : dsCanApDung) {
-            hd.getDanhSachThuePhi().add(new HoaDonThuePhi(hd, tp.getTenThuePhi(), tp.getGiaTri()));
+            hd.getDanhSachThuePhi().add(new HoaDonThuePhi(hd, tp.getTenThuePhi(), tp.getGiaTri(), tp.getLoaiGiaTri()));
         }
     }
 
@@ -570,7 +595,13 @@ public class HoaDonServiceImpl implements HoaDonService {
         StringBuilder sb = new StringBuilder();
         sb.append("=== MATCHTEA BILL ===\n");
         sb.append("Ngày: ").append(LocalDateTime.now().format(formatter)).append("\n");
-        sb.append("NV: ").append(hd.getNhanVien().getHoTen()).append("\n");
+        // Sửa tên Thu ngân (người chốt bill)
+        sb.append("Thu ngân: ").append(hd.getThuNgan().getHoTen()).append("\n");
+
+        // Thêm tên Phục vụ (người mở bàn) nếu là đơn tại bàn
+        if (hd.getPhieuDatBan() != null && hd.getPhieuDatBan().getNhanVienPhucVu() != null) {
+            sb.append("Phục vụ : ").append(hd.getPhieuDatBan().getNhanVienPhucVu().getHoTen()).append("\n");
+        }
         sb.append("---------------------\n");
 
         hd.getDanhSachChiTiet().forEach(ct -> {
@@ -611,7 +642,7 @@ public class HoaDonServiceImpl implements HoaDonService {
             if (trungMon.isPresent()) {
                 ChiTietHoaDon existingCt = trungMon.get();
                 existingCt.setSoLuong(existingCt.getSoLuong() + req.soLuong());
-                // Cập nhật lại phần trăm giảm giá mới nhất từ DB nếu cần (tùy nghiệp vụ)
+
                 existingCt.setPhanTramGiamGia(bt.getPhanTramGiamGia());
             } else {
                 ChiTietHoaDon ct = new ChiTietHoaDon();
@@ -738,18 +769,29 @@ public class HoaDonServiceImpl implements HoaDonService {
 
         if (hd.getDanhSachThuePhi() != null) {
             for (HoaDonThuePhi tp : hd.getDanhSachThuePhi()) {
-                BigDecimal tiLe = BigDecimal.valueOf(tp.getGiaTriTaiThoiDiemBan());
+                BigDecimal giaTri = BigDecimal.valueOf(tp.getGiaTriTaiThoiDiemBan());
                 BigDecimal tienQuyDoi;
 
-                if (hd.getKhuyenMai() != null && hd.getKhuyenMai().getLaGiamGiaSauThue()) {
-                    tienQuyDoi = tongTienHang.subtract(giamGiaTV).multiply(tiLe);
+                // KIỂM TRA LOẠI GIÁ TRỊ (PHAN_TRAM hay TIEN_MAT)
+                if (tp.getLoaiGiaTri() == LoaiGiaTriThuePhi.PHAN_TRAM) {
+                    // Nếu là phần trăm, tính dựa trên số tiền sau giảm (hoặc trước giảm tùy loại KM)
+                    BigDecimal baseAmount;
+                    if (hd.getKhuyenMai() != null && hd.getKhuyenMai().getLaGiamGiaSauThue()) {
+                        baseAmount = tongTienHang.subtract(giamGiaTV);
+                    } else {
+                        baseAmount = soTienSauGiam;
+                    }
+
+                    // Công thức: (Số tiền * Phần trăm) / 100
+                    tienQuyDoi = baseAmount.multiply(giaTri)
+                            .divide(new BigDecimal("100"), 2, RoundingMode.HALF_UP);
                 } else {
-                    tienQuyDoi = soTienSauGiam.multiply(tiLe);
+                    // Nếu là tiền mặt (VND), giữ nguyên giá trị đó cộng vào bill
+                    tienQuyDoi = giaTri.setScale(2, RoundingMode.HALF_UP);
                 }
 
-                BigDecimal tienTron = tienQuyDoi.setScale(2, RoundingMode.HALF_UP);
-                tp.setSoTienQuyDoi(tienTron);
-                tongTienThuePhi = tongTienThuePhi.add(tienTron);
+                tp.setSoTienQuyDoi(tienQuyDoi);
+                tongTienThuePhi = tongTienThuePhi.add(tienQuyDoi);
             }
         }
         hd.setTongTienThue(tongTienThuePhi);
@@ -800,5 +842,19 @@ public class HoaDonServiceImpl implements HoaDonService {
         } catch (Exception e) {
             System.err.println("Lỗi cập nhật Realtime Order: " + e.getMessage());
         }
+    }
+
+    @Override
+    public Page<HoaDonResponse> layLichSuHoaDonKhachHang(Integer idKhachHang, int page, int size) {
+
+        if (!khachHangRepository.existsById(idKhachHang)) {
+            throw new ResourceNotFoundException("Khách hàng không tồn tại");
+        }
+
+        Pageable pageable = PageRequest.of(page, size);
+        Page<HoaDon> hoaDons = hoaDonRepository.findByKhachHang_IdKhachHangOrderByThoiGianTaoDesc(idKhachHang, pageable);
+
+        // Chuyển đổi từ Page<Entity> sang Page<Response>
+        return hoaDons.map(this::mapToResponseFull);
     }
 }

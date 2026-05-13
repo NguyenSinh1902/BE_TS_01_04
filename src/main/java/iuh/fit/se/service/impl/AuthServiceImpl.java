@@ -45,27 +45,32 @@ public class AuthServiceImpl implements AuthService {
         if (existingUser.isPresent()) {
             NhanVien nv = existingUser.get();
 
-            if (nv.isEmailVerified() && nv.getTrangThai() == TrangThaiNhanVien.HOAT_DONG) {
+            if (nv.getTrangThai() == TrangThaiNhanVien.HOAT_DONG) {
                 throw new BadRequestException("Email đã tồn tại và đang hoạt động!");
             }
-
-            if (nv.isEmailVerified() && nv.getTrangThai() == TrangThaiNhanVien.CHO_DUYET) {
+            if (nv.getTrangThai() == TrangThaiNhanVien.CHO_DUYET) {
                 throw new BadRequestException("Tài khoản đã xác thực email, vui lòng chờ Admin phê duyệt.");
             }
+            if (nv.getTrangThai() == TrangThaiNhanVien.BI_KHOA) {
+                throw new BadRequestException("Tài khoản đã bị khóa!");
+            }
 
+            // Chỉ khi trạng thái là CHO_XAC_THUC (đăng ký chưa xong) thì mới cho lưu đè & gửi lại OTP mới
             return nhanVienMapper.toResponse(saveWithNewOtp(nv, request));
         }
 
-        if (nhanVienRepository.existsBySoDienThoaiAndThoiGianXoa(request.soDienThoai(), 0L)) {
-            throw new BadRequestException("Số điện thoại này đã được đăng ký bởi nhân viên khác!");
+
+        if (request.soDienThoai() != null && !request.soDienThoai().trim().isEmpty()) {
+            if (nhanVienRepository.existsBySoDienThoaiAndThoiGianXoa(request.soDienThoai(), 0L)) {
+                throw new BadRequestException("Số điện thoại này đã được đăng ký bởi nhân viên khác!");
+            }
         }
 
         NhanVien moi = new NhanVien();
         moi.setEmail(request.email());
-        moi.setVaiTro(VaiTroNhanVien.PHUC_VU);
-        moi.setTrangThai(TrangThaiNhanVien.CHO_DUYET);
+        moi.setTrangThai(TrangThaiNhanVien.CHO_XAC_THUC);
         moi.setEmailVerified(false);
-        moi.setThoiGianXoa(0L); // Mặc định là 0
+        moi.setThoiGianXoa(0L);
 
         return nhanVienMapper.toResponse(saveWithNewOtp(moi, request));
     }
@@ -77,18 +82,14 @@ public class AuthServiceImpl implements AuthService {
         nv.setSoDienThoai(request.soDienThoai());
 
         if (request.vaiTro() != null) {
-
             if (request.vaiTro() == VaiTroNhanVien.ADMIN) {
                 nv.setVaiTro(VaiTroNhanVien.PHUC_VU);
             } else {
                 nv.setVaiTro(request.vaiTro());
             }
-        }
-
-        else if (nv.getVaiTro() == null) {
+        } else if (nv.getVaiTro() == null) {
             nv.setVaiTro(VaiTroNhanVien.PHUC_VU);
         }
-
 
         String otp = String.format("%06d", new Random().nextInt(999999));
         nv.setMaOtp(otp);
@@ -119,6 +120,7 @@ public class AuthServiceImpl implements AuthService {
         }
 
         nv.setEmailVerified(true);
+        nv.setTrangThai(TrangThaiNhanVien.CHO_DUYET);
         nv.setMaOtp(null);
         nv.setThoiHanOtp(null);
         nhanVienRepository.save(nv);
@@ -133,11 +135,18 @@ public class AuthServiceImpl implements AuthService {
             throw new BadRequestException("Email hoặc mật khẩu không đúng");
         }
 
-        if (nv.getTrangThai() != TrangThaiNhanVien.HOAT_DONG) {
-            throw new BadRequestException("Tài khoản chưa được kích hoạt hoặc bị khóa");
+        switch (nv.getTrangThai()) {
+            case CHO_XAC_THUC:
+                throw new BadRequestException("Tài khoản chưa xác thực. Vui lòng kiểm tra email để lấy mã OTP!");
+            case CHO_DUYET:
+                throw new BadRequestException("Tài khoản đã xác thực thành công. Vui lòng đợi quản lý phê duyệt!");
+            case BI_KHOA:
+                throw new BadRequestException("Tài khoản của bạn đã bị khóa!");
+            case HOAT_DONG:
+                return nhanVienMapper.toResponse(nv);
+            default:
+                throw new BadRequestException("Trạng thái tài khoản không hợp lệ!");
         }
-
-        return nhanVienMapper.toResponse(nv);
     }
 
     @Override
@@ -145,6 +154,13 @@ public class AuthServiceImpl implements AuthService {
     public void requestOtp(String email) {
         NhanVien nv = nhanVienRepository.findActiveByEmail(email)
                 .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy email"));
+
+        if (nv.getTrangThai() == TrangThaiNhanVien.CHO_XAC_THUC) {
+            throw new BadRequestException("Tài khoản này chưa hoàn tất đăng ký ban đầu!");
+        }
+        if (nv.getTrangThai() == TrangThaiNhanVien.BI_KHOA) {
+            throw new BadRequestException("Tài khoản đã bị khóa, không thể lấy lại mật khẩu!");
+        }
 
         String otp = String.format("%06d", new Random().nextInt(999999));
         nv.setMaOtp(otp);
@@ -157,6 +173,7 @@ public class AuthServiceImpl implements AuthService {
     @Override
     @Transactional
     public void resetPassword(QuenMatKhauRequest request) {
+
         NhanVien nv = nhanVienRepository.findActiveByEmail(request.email())
                 .orElseThrow(() -> new ResourceNotFoundException("Email không tồn tại"));
 

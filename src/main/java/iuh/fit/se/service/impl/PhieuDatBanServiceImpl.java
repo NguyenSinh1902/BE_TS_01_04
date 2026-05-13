@@ -3,10 +3,7 @@ package iuh.fit.se.service.impl;
 import iuh.fit.se.dto.ban.BanResponse;
 import iuh.fit.se.dto.phieudatban.PhieuDatBanRequest;
 import iuh.fit.se.dto.phieudatban.PhieuDatBanResponse;
-import iuh.fit.se.entity.Ban;
-import iuh.fit.se.entity.ChiTietDatBan;
-import iuh.fit.se.entity.HoaDon;
-import iuh.fit.se.entity.PhieuDatBan;
+import iuh.fit.se.entity.*;
 import iuh.fit.se.enums.TinhTrangBan;
 import iuh.fit.se.enums.TrangThaiDatBan;
 import iuh.fit.se.enums.TrangThaiHoaDon;
@@ -15,13 +12,12 @@ import iuh.fit.se.exception.NotFoundException;
 import iuh.fit.se.exception.ResourceNotFoundException;
 import iuh.fit.se.mapper.BanMapper;
 import iuh.fit.se.mapper.PhieuDatBanMapper;
-import iuh.fit.se.repository.BanRepository;
-import iuh.fit.se.repository.ChiTietDatBanRepository;
-import iuh.fit.se.repository.HoaDonRepository;
-import iuh.fit.se.repository.PhieuDatBanRepository;
+import iuh.fit.se.repository.*;
 import iuh.fit.se.service.FirebaseMessagingService;
 import iuh.fit.se.service.FirebaseRealtimeService;
 import iuh.fit.se.service.PhieuDatBanService;
+import iuh.fit.se.utils.SecurityUtils;
+import org.springframework.security.access.AccessDeniedException;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.stereotype.Service;
 
@@ -42,8 +38,9 @@ public class PhieuDatBanServiceImpl implements PhieuDatBanService {
     private final HoaDonRepository hoaDonRepository;
     private final FirebaseRealtimeService firebaseRealtimeService;
     private final FirebaseMessagingService firebaseMessagingService;
+    private final NhanVienRepository nhanVienRepository;
 
-    public PhieuDatBanServiceImpl(PhieuDatBanRepository phieuDatBanRepository, ChiTietDatBanRepository chiTietDatBanRepository, BanRepository banRepository, PhieuDatBanMapper phieuDatBanMapper, BanMapper banMapper, HoaDonRepository hoaDonRepository, FirebaseRealtimeService firebaseRealtimeService, FirebaseMessagingService firebaseMessagingService) {
+    public PhieuDatBanServiceImpl(PhieuDatBanRepository phieuDatBanRepository, ChiTietDatBanRepository chiTietDatBanRepository, BanRepository banRepository, PhieuDatBanMapper phieuDatBanMapper, BanMapper banMapper, HoaDonRepository hoaDonRepository, FirebaseRealtimeService firebaseRealtimeService, FirebaseMessagingService firebaseMessagingService, NhanVienRepository nhanVienRepository) {
         this.phieuDatBanRepository = phieuDatBanRepository;
         this.chiTietDatBanRepository = chiTietDatBanRepository;
         this.banRepository = banRepository;
@@ -52,12 +49,23 @@ public class PhieuDatBanServiceImpl implements PhieuDatBanService {
         this.hoaDonRepository = hoaDonRepository;
         this.firebaseRealtimeService = firebaseRealtimeService;
         this.firebaseMessagingService = firebaseMessagingService;
+        this.nhanVienRepository = nhanVienRepository;
     }
 
     @Override
     @Transactional
     public PhieuDatBanResponse taoPhieuDatMoi(PhieuDatBanRequest request) {
+
         PhieuDatBan phieu = phieuDatBanMapper.toEntity(request);
+
+        // LẤY ID TỪ SECURITY CONTEXT
+        Integer idPhucVu = SecurityUtils.getCurrentIdNhanVien();
+        if (idPhucVu == null) throw new AccessDeniedException("Vui lòng đăng nhập!");
+
+        // Gán nhân viên phục vụ
+        phieu.setNhanVienPhucVu(nhanVienRepository.getReferenceById(idPhucVu));
+
+        // Xác định trạng thái đến dựa trên thời gian đặt
         if (request.thoiGianDat().isBefore(LocalDateTime.now().plusMinutes(5))) {
             phieu.setTrangThaiDat(TrangThaiDatBan.DA_DEN);
         } else {
@@ -247,7 +255,7 @@ public class PhieuDatBanServiceImpl implements PhieuDatBanService {
         return new PhieuDatBanResponse(
                 res.idPhieuDat(), res.tenKhachHang(), res.sdtKhachHang(),
                 res.thoiGianDat(), res.soLuongNguoi(), res.trangThaiDat(),
-                res.ghiChu(), bans
+                res.ghiChu(), res.tenNhanVienPhucVu() ,bans
         );
     }
 
@@ -313,6 +321,7 @@ public class PhieuDatBanServiceImpl implements PhieuDatBanService {
                 res.soLuongNguoi(),
                 res.trangThaiDat(),
                 res.ghiChu(),
+                res.tenNhanVienPhucVu(),
                 banResponses
         );
     }

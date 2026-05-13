@@ -15,6 +15,10 @@ public class PhieuDatBan {
     @Column(name = "id_phieu_dat")
     private Integer idPhieuDat;
 
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "id_nhan_vien_phuc_vu", nullable = false)
+    private NhanVien nhanVienPhucVu;
+
     @Column(name = "ten_khach_hang", length = 100)
     private String tenKhachHang;
 
@@ -40,8 +44,9 @@ public class PhieuDatBan {
     public PhieuDatBan() {
     }
 
-    public PhieuDatBan(Integer idPhieuDat, String tenKhachHang, String sdtKhachHang, LocalDateTime thoiGianDat, Integer soLuongNguoi, TrangThaiDatBan trangThaiDat, String ghiChu, Long thoiGianXoa) {
+    public PhieuDatBan(Integer idPhieuDat, NhanVien nhanVienPhucVu, String tenKhachHang, String sdtKhachHang, LocalDateTime thoiGianDat, Integer soLuongNguoi, TrangThaiDatBan trangThaiDat, String ghiChu, Long thoiGianXoa) {
         this.idPhieuDat = idPhieuDat;
+        this.nhanVienPhucVu = nhanVienPhucVu;
         this.tenKhachHang = tenKhachHang;
         this.sdtKhachHang = sdtKhachHang;
         this.thoiGianDat = thoiGianDat;
@@ -57,6 +62,14 @@ public class PhieuDatBan {
 
     public void setIdPhieuDat(Integer idPhieuDat) {
         this.idPhieuDat = idPhieuDat;
+    }
+
+    public NhanVien getNhanVienPhucVu() {
+        return nhanVienPhucVu;
+    }
+
+    public void setNhanVienPhucVu(NhanVien nhanVienPhucVu) {
+        this.nhanVienPhucVu = nhanVienPhucVu;
     }
 
     public String getTenKhachHang() {

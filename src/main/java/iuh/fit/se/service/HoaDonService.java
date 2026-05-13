@@ -7,6 +7,7 @@ import iuh.fit.se.dto.hoadon.ThanhToanRequest;
 import iuh.fit.se.enums.LoaiDonHang;
 import iuh.fit.se.enums.PhuongThucThanhToan;
 import iuh.fit.se.enums.TrangThaiHoaDon;
+import org.springframework.data.domain.Page;
 
 import java.time.LocalDate;
 import java.util.List;
@@ -41,4 +42,6 @@ public interface HoaDonService {
     HoaDonResponse xoaMonKhoiHoaDon(Integer idHoaDon, Integer idChiTiet);
 
     HoaDonResponse capNhatTrangThai(Integer idHoaDon, TrangThaiHoaDon trangThaiMoi);
+
+    Page<HoaDonResponse> layLichSuHoaDonKhachHang(Integer idKhachHang, int page, int size);
 }

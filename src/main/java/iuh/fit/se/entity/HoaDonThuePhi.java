@@ -1,5 +1,6 @@
 package iuh.fit.se.entity;
 
+import iuh.fit.se.enums.LoaiGiaTriThuePhi;
 import jakarta.persistence.*;
 
 import java.math.BigDecimal;
@@ -21,24 +22,22 @@ public class HoaDonThuePhi {
     @Column(nullable = false)
     private Float giaTriTaiThoiDiemBan;
 
+    @Enumerated(EnumType.STRING)
+    @Column(nullable = false, length = 20)
+    private LoaiGiaTriThuePhi loaiGiaTri;
+
     @Column(precision = 12, scale = 2)
     private BigDecimal soTienQuyDoi;
 
     // Constructor
     public HoaDonThuePhi() {}
 
-    public HoaDonThuePhi(HoaDon hd, String ten, Float giaTri) {
-        this.hoaDon = hd;
-        this.tenThuePhi = ten;
-        this.giaTriTaiThoiDiemBan = giaTri;
-    }
-
-    public HoaDonThuePhi(Integer id, HoaDon hoaDon, String tenThuePhi, Float giaTriTaiThoiDiemBan, BigDecimal soTienQuyDoi) {
-        this.id = id;
+    public HoaDonThuePhi(HoaDon hoaDon, String tenThuePhi, Float giaTriTaiThoiDiemBan, LoaiGiaTriThuePhi loaiGiaTri) {
         this.hoaDon = hoaDon;
         this.tenThuePhi = tenThuePhi;
         this.giaTriTaiThoiDiemBan = giaTriTaiThoiDiemBan;
-        this.soTienQuyDoi = soTienQuyDoi;
+        this.loaiGiaTri = loaiGiaTri;
+        this.soTienQuyDoi = BigDecimal.ZERO;
     }
 
     public Integer getId() {
@@ -71,6 +70,14 @@ public class HoaDonThuePhi {
 
     public void setGiaTriTaiThoiDiemBan(Float giaTriTaiThoiDiemBan) {
         this.giaTriTaiThoiDiemBan = giaTriTaiThoiDiemBan;
+    }
+
+    public LoaiGiaTriThuePhi getLoaiGiaTri() {
+        return loaiGiaTri;
+    }
+
+    public void setLoaiGiaTri(LoaiGiaTriThuePhi loaiGiaTri) {
+        this.loaiGiaTri = loaiGiaTri;
     }
 
     public BigDecimal getSoTienQuyDoi() {

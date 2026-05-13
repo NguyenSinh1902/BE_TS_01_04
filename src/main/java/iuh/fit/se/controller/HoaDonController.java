@@ -8,6 +8,7 @@ import iuh.fit.se.enums.TrangThaiHoaDon;
 import iuh.fit.se.exception.BadRequestException;
 import iuh.fit.se.service.HoaDonService;
 import jakarta.validation.Valid;
+import org.springframework.data.domain.Page;
 import org.springframework.format.annotation.DateTimeFormat;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -124,5 +125,14 @@ public class HoaDonController {
             @PathVariable Integer id,
             @RequestParam TrangThaiHoaDon trangThai) {
         return ResponseEntity.ok(hoaDonService.capNhatTrangThai(id, trangThai));
+    }
+
+    @GetMapping("/khach-hang/{idKhachHang}/lich-su")
+    public ResponseEntity<Page<HoaDonResponse>> getLichSu(
+            @PathVariable Integer idKhachHang,
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "10") int size) {
+
+        return ResponseEntity.ok(hoaDonService.layLichSuHoaDonKhachHang(idKhachHang, page, size));
     }
 }

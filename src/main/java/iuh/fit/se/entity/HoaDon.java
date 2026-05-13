@@ -24,8 +24,8 @@ public class HoaDon {
     private Integer idHoaDon;
 
     @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "id_nhan_vien", nullable = false)
-    private NhanVien nhanVien;
+    @JoinColumn(name = "id_thu_ngan", nullable = true)
+    private NhanVien thuNgan;
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "id_khach_hang")
@@ -94,9 +94,9 @@ public class HoaDon {
 
     public HoaDon() {}
 
-    public HoaDon(Integer idHoaDon, NhanVien nhanVien, KhachHang khachHang, PhieuDatBan phieuDatBan, KhuyenMai khuyenMai, LoaiDonHang loaiDonHang, BigDecimal tongTienHang, BigDecimal giamGiaKhuyenMai, BigDecimal giamGiaThanhVien, Integer diemSuDung, List<HoaDonThuePhi> danhSachThuePhi, BigDecimal tongTienThue, BigDecimal tongThanhToan, TrangThaiHoaDon trangThai, LocalDateTime thoiGianTao, Long thoiGianXoa, PhuongThucThanhToan phuongThucThanhToan, LocalDateTime thoiGianYeuCau, LocalDateTime thoiGianThanhToan, String thongTinChiTiet, Set<ChiTietHoaDon> danhSachChiTiet) {
+    public HoaDon(Integer idHoaDon, NhanVien thuNgan, KhachHang khachHang, PhieuDatBan phieuDatBan, KhuyenMai khuyenMai, LoaiDonHang loaiDonHang, BigDecimal tongTienHang, BigDecimal giamGiaKhuyenMai, BigDecimal giamGiaThanhVien, Integer diemSuDung, List<HoaDonThuePhi> danhSachThuePhi, BigDecimal tongTienThue, BigDecimal tongThanhToan, TrangThaiHoaDon trangThai, LocalDateTime thoiGianTao, Long thoiGianXoa, PhuongThucThanhToan phuongThucThanhToan, LocalDateTime thoiGianYeuCau, LocalDateTime thoiGianThanhToan, String thongTinChiTiet, Set<ChiTietHoaDon> danhSachChiTiet) {
         this.idHoaDon = idHoaDon;
-        this.nhanVien = nhanVien;
+        this.thuNgan = thuNgan;
         this.khachHang = khachHang;
         this.phieuDatBan = phieuDatBan;
         this.khuyenMai = khuyenMai;
@@ -122,7 +122,7 @@ public class HoaDon {
     public String toString() {
         return "HoaDon{" +
                 "id=" + idHoaDon +
-                ", nhanVien=" + (nhanVien != null ? nhanVien.getHoTen() : "N/A") +
+                ", nhanVien=" + (thuNgan != null ? thuNgan.getHoTen() : "N/A") +
                 ", ban=" + (phieuDatBan != null ? phieuDatBan.getIdPhieuDat() : "Mang về") +
                 ", tong=" + tongThanhToan +
                 ", chiTiet='" + thongTinChiTiet + '\'' +
@@ -138,12 +138,12 @@ public class HoaDon {
         this.idHoaDon = idHoaDon;
     }
 
-    public NhanVien getNhanVien() {
-        return nhanVien;
+    public NhanVien getThuNgan() {
+        return thuNgan;
     }
 
-    public void setNhanVien(NhanVien nhanVien) {
-        this.nhanVien = nhanVien;
+    public void setThuNgan(NhanVien thuNgan) {
+        this.thuNgan = thuNgan;
     }
 
     public KhachHang getKhachHang() {

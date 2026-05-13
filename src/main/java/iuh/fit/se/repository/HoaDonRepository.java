@@ -3,6 +3,7 @@ package iuh.fit.se.repository;
 import iuh.fit.se.entity.HoaDon;
 import iuh.fit.se.enums.LoaiDonHang;
 import iuh.fit.se.enums.TrangThaiHoaDon;
+import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
@@ -107,4 +108,15 @@ public interface HoaDonRepository extends JpaRepository<HoaDon, Integer> {
             "GROUP BY sp.idSanPham, sp.tenSanPham " +
             "ORDER BY total ASC")
     List<Object[]> findTop5WorstSellers(@Param("start") LocalDateTime start, @Param("end") LocalDateTime end, Pageable pageable);
+
+    // Lấy lịch sử hóa đơn của 1 khách hàng
+    Page<HoaDon> findByKhachHang_IdKhachHangOrderByThoiGianTaoDesc(Integer idKhachHang, Pageable pageable);
+
+    @Query("SELECT tp.topping.idSanPham, tp.topping.tenSanPham, tp.topping.duongDanAnh, COUNT(tp) " +
+            "FROM ChiTietHoaDon ct " +
+            "JOIN ct.danhSachTopping tp " +
+            "WHERE ct.bienThe.sanPham.idSanPham = :idSpChinh " +
+            "GROUP BY tp.topping.idSanPham, tp.topping.tenSanPham, tp.topping.duongDanAnh " +
+            "ORDER BY COUNT(tp) DESC")
+    List<Object[]> findTopToppingsForProduct(@Param("idSpChinh") Integer idSpChinh, Pageable pageable);
 }
