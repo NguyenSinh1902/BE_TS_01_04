@@ -59,7 +59,8 @@ public interface HoaDonRepository extends JpaRepository<HoaDon, Integer> {
     long demSoDonHang(@Param("start") LocalDateTime start, @Param("end") LocalDateTime end);
 
     //Tìm món bán chạy nhất
-    @Query("SELECT ct.bienThe.sanPham.tenSanPham, SUM(ct.soLuong) as total " +
+    // Tìm món bán chạy nhất (Trả về ID sản phẩm và Số lượng)
+    @Query("SELECT ct.bienThe.sanPham.idSanPham, SUM(ct.soLuong) as total " +
             "FROM ChiTietHoaDon ct " +
             "WHERE ct.hoaDon.thoiGianThanhToan BETWEEN :start AND :end " +
             "GROUP BY ct.bienThe.sanPham.idSanPham " +
@@ -86,29 +87,30 @@ public interface HoaDonRepository extends JpaRepository<HoaDon, Integer> {
     List<Object[]> countOrderByHour(@Param("start") LocalDateTime start, @Param("end") LocalDateTime end);
 
     // 1. TOP 5 BÁN CHẠY NHẤT
-    // Sửa lại logic: Join từ SanPham để đảm bảo lấy đúng cấu trúc
+    //(Chỉ lấy món nước, loại bỏ Topping)
     @Query("SELECT sp.tenSanPham, SUM(ct.soLuong) as total " +
             "FROM ChiTietHoaDon ct " +
             "JOIN ct.bienThe bt " +
             "JOIN bt.sanPham sp " +
             "WHERE ct.hoaDon.thoiGianTao BETWEEN :start AND :end " +
             "AND ct.hoaDon.thoiGianXoa = 0 " +
+            "AND sp.laTopping = false " + //Chỉ lấy sản phẩm KHÔNG PHẢI là topping
             "GROUP BY sp.idSanPham, sp.tenSanPham " +
             "ORDER BY total DESC")
     List<Object[]> findTop5BestSellers(@Param("start") LocalDateTime start, @Param("end") LocalDateTime end, Pageable pageable);
 
-    // TOP 5 BÁN CHẬM NHẤT (Bản sửa lỗi triệt để)
+    // 2. TOP 5 BÁN CHẬM NHẤT (Chỉ lấy món nước, loại bỏ Topping)
     @Query("SELECT sp.tenSanPham, COALESCE(SUM(ct.soLuong), 0) as total " +
             "FROM SanPham sp " +
-            "LEFT JOIN sp.danhSachBienThe bt " +  // Dùng tên biến trong SanPham, KHÔNG dùng tên Class BienThe
+            "LEFT JOIN sp.danhSachBienThe bt " +
             "LEFT JOIN ChiTietHoaDon ct ON ct.bienThe = bt " +
             "  AND ct.hoaDon.thoiGianTao BETWEEN :start AND :end " +
             "  AND ct.hoaDon.thoiGianXoa = 0 " +
             "WHERE sp.thoiGianXoa = 0 " +
+            "AND sp.laTopping = false " + //Loại bỏ hoàn toàn các mặt hàng topping ra khỏi bảng bán chậm
             "GROUP BY sp.idSanPham, sp.tenSanPham " +
             "ORDER BY total ASC")
     List<Object[]> findTop5WorstSellers(@Param("start") LocalDateTime start, @Param("end") LocalDateTime end, Pageable pageable);
-
     // Lấy lịch sử hóa đơn của 1 khách hàng
     Page<HoaDon> findByKhachHang_IdKhachHangOrderByThoiGianTaoDesc(Integer idKhachHang, Pageable pageable);
 
@@ -119,4 +121,16 @@ public interface HoaDonRepository extends JpaRepository<HoaDon, Integer> {
             "GROUP BY tp.topping.idSanPham, tp.topping.tenSanPham, tp.topping.duongDanAnh " +
             "ORDER BY COUNT(tp) DESC")
     List<Object[]> findTopToppingsForProduct(@Param("idSpChinh") Integer idSpChinh, Pageable pageable);
+
+    @Query("SELECT h.phuongThucThanhToan, COUNT(h) FROM HoaDon h " +
+            "WHERE h.thoiGianTao BETWEEN :start AND :end " +
+            "AND h.thoiGianXoa = 0 " +
+            "AND h.trangThai IN (iuh.fit.se.enums.TrangThaiHoaDon.DA_THANH_TOAN, iuh.fit.se.enums.TrangThaiHoaDon.HOAN_TAT) " +
+            "AND h.phuongThucThanhToan IS NOT NULL " +
+            "GROUP BY h.phuongThucThanhToan")
+    List<Object[]> countOrderByPhuongThucThanhToan(@Param("start") LocalDateTime start, @Param("end") LocalDateTime end);
+
+    // Dùng nativeQuery = true để bỏ qua điều kiện thoi_gian_xoa = 0 của Hibernate
+    @Query(value = "SELECT * FROM hoa_don ORDER BY thoi_gian_tao DESC", nativeQuery = true)
+    List<HoaDon> findAllInvoicesIncludingDeleted();
 }

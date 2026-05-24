@@ -25,9 +25,15 @@ public class AiStrategyController {
         return ResponseEntity.ok(aiStrategyService.thucHienPhanTich(ngay));
     }
 
+//    @GetMapping("/history")
+//    public ResponseEntity<List<NhatKyAiResponse>> getHistory(
+//            @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate ngay) {
+//        return ResponseEntity.ok(aiStrategyService.layLichSuTheoNgay(ngay));
+//    }
+
     @GetMapping("/history")
     public ResponseEntity<List<NhatKyAiResponse>> getHistory(
-            @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate ngay) {
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate ngay) {
         return ResponseEntity.ok(aiStrategyService.layLichSuTheoNgay(ngay));
     }
 }

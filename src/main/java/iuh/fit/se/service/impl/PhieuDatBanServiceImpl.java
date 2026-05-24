@@ -100,12 +100,31 @@ public class PhieuDatBanServiceImpl implements PhieuDatBanService {
         // REALTIME: Cập nhật sơ đồ bàn cho tất cả nhân viên
         firebaseRealtimeService.updateMultipleBansStatus(listBanThayDoi);
 
-        // THÔNG BÁO ĐẨY: Chỉ gửi cho nhóm nhân viên (Phục vụ & Thu ngân)
-        String title = "Đơn đặt bàn mới!";
-        String body = "Khách " + savedPhieu.getTenKhachHang() + " vừa đặt " + request.danhSachIdBan().size() + " bàn.";
+        //XỬ LÝ PHÂN TÁCH LUỒNG THÔNG BÁO CHO THU NGÂN
+        try {
+            String title;
+            String body;
+            String danhSachTenBan = listBanThayDoi.stream().map(Ban::getTenBan).collect(Collectors.joining(", "));
 
-        // Gửi vào topic 'staff' - FE của Thu ngân và Phục vụ sẽ subscribe topic này
-        firebaseMessagingService.sendNotificationToTopic("staff", title, body);
+            if (savedPhieu.getTrangThaiDat() == TrangThaiDatBan.DA_DEN) {
+                // Trường hợp 1: Khách vào quán ngồi luôn (Mở bàn trực tiếp tại quán)
+                title = "✨ Mở bàn phục vụ mới!";
+                body = "B bàn: " + danhSachTenBan + " đã được mở cho khách \"" + savedPhieu.getTenKhachHang() + "\".";
+            } else {
+                // Trường hợp 2: Khách đặt lịch trước qua hotline/app (Chờ đến)
+                title = "📅 Đơn đặt lịch trước!";
+                body = "Khách \"" + savedPhieu.getTenKhachHang() + "\" đặt trước bàn: " + danhSachTenBan + " vào lúc " + savedPhieu.getThoiGianDat().toString().replace("T", " ") + ".";
+            }
+
+            // Đổi từ "staff" thành "THU_NGAN" để app thu ngân nổ chuông lập tức
+            firebaseMessagingService.sendNotificationToTopic("THU_NGAN", title, body);
+
+            // (Tùy chọn) Bắn luôn cho Phục vụ nếu muốn đồng bộ cả quán
+            firebaseMessagingService.sendNotificationToTopic("PHUC_VU", title, body);
+
+        } catch (Exception e) {
+            System.out.println("⚠️ Lỗi phân luồng thông báo đặt bàn: " + e.getMessage());
+        }
 
         return setBanToResponse(phieuDatBanMapper.toResponse(savedPhieu), banResponses);
     }
@@ -159,8 +178,20 @@ public class PhieuDatBanServiceImpl implements PhieuDatBanService {
                     firebaseRealtimeService.updateOrderRealtime(hd);
                 });
 
-        // 6. REALTIME: Cập nhật sơ đồ bàn
+        /// 6. REALTIME: Cập nhật sơ đồ bàn
         firebaseRealtimeService.updateMultipleBansStatus(List.of(banCu, banMoi));
+
+        //THÔNG BÁO ĐẨY
+        try {
+            String tieuDe = "🔄 Chuyển bàn phục vụ";
+            String noiDung = "Phiếu đặt #" + idPhieu + " đã chuyển từ " + banCu.getTenBan() + " sang " + banMoi.getTenBan();
+
+            // Báo cho cả quầy thu ngân và phục vụ chạy bàn đồng bộ vị trí
+            firebaseMessagingService.sendNotificationToTopic("THU_NGAN", tieuDe, noiDung);
+            firebaseMessagingService.sendNotificationToTopic("PHUC_VU", tieuDe, noiDung);
+        } catch (Exception e) {
+            System.out.println("⚠️ Lỗi FCM doiBan: " + e.getMessage());
+        }
     }
 
     @Override
@@ -168,6 +199,8 @@ public class PhieuDatBanServiceImpl implements PhieuDatBanService {
     public void gopThemBan(Integer idPhieu, List<Integer> idBansMoi) {
         PhieuDatBan phieu = phieuDatBanRepository.findActiveById(idPhieu)
                 .orElseThrow(() -> new NotFoundException("Phiếu đặt bàn không tồn tại!"));
+
+        List<Ban> listBanThayDoi = new ArrayList<>(); // Tạo list hứng để đẩy Realtime
         for (Integer id : idBansMoi) {
             Ban ban = banRepository.findActiveById(id)
                     .orElseThrow(() -> new NotFoundException("Bàn " + id + " không tồn tại!"));
@@ -180,6 +213,19 @@ public class PhieuDatBanServiceImpl implements PhieuDatBanService {
 
             ban.setTinhTrangBan(TinhTrangBan.CO_KHACH);
             banRepository.save(ban);
+        }
+
+        // 1. REALTIME: Ép các bàn mới gộp phải đổi sang màu ĐỎ (CO_KHACH) trên sơ đồ
+        firebaseRealtimeService.updateMultipleBansStatus(listBanThayDoi);
+
+        // 2. THÔNG BÁO ĐẨY: Báo cho Thu ngân biết để gộp bill trên máy tính tiền
+        try {
+            String danhSachTenBan = listBanThayDoi.stream().map(Ban::getTenBan).collect(Collectors.joining(", "));
+            firebaseMessagingService.sendNotificationToTopic("THU_NGAN",
+                    "➕ Gộp thêm bàn mới",
+                    "Phiếu đặt #" + idPhieu + " vừa gộp thêm các bàn: " + danhSachTenBan);
+        } catch (Exception e) {
+            System.out.println("⚠️ Lỗi FCM gopThemBan: " + e.getMessage());
         }
     }
 
@@ -220,7 +266,7 @@ public class PhieuDatBanServiceImpl implements PhieuDatBanService {
         String title = "Hủy phiếu đặt bàn";
         String body = "Phiếu của khách " + phieu.getTenKhachHang() + " đã bị hủy. Bàn hiện đã trống.";
 
-        firebaseMessagingService.sendNotificationToTopic("staff", title, body);
+        firebaseMessagingService.sendNotificationToTopic("THU_NGAN", title, body);
     }
 
     @Override
@@ -236,11 +282,20 @@ public class PhieuDatBanServiceImpl implements PhieuDatBanService {
         phieu.setTrangThaiDat(TrangThaiDatBan.DA_HUY);
 
         List<ChiTietDatBan> chiTiets = chiTietDatBanRepository.findByPhieuDatBan_IdPhieuDat(idPhieu);
+        List<Ban> bansToUpdate = new ArrayList<>(); // Tạo list gửi Firebase
+
         for (ChiTietDatBan ct : chiTiets) {
             Ban ban = ct.getBan();
             ban.setTinhTrangBan(TinhTrangBan.TRONG);
+            bansToUpdate.add(ban);
         }
+
+        banRepository.saveAll(bansToUpdate); // Lưu trạng thái TRỐNG vào SQL
         phieuDatBanRepository.save(phieu);
+
+        // --- 🌟 THÊM DÒNG REALTIME CHIẾN LƯỢC NÀY 🌟 ---
+        // Giúp sơ đồ bàn lập tức chuyển sang màu xanh ngay khi hóa đơn bị hủy
+        firebaseRealtimeService.updateMultipleBansStatus(bansToUpdate);
     }
 
     @Override
@@ -353,6 +408,15 @@ public class PhieuDatBanServiceImpl implements PhieuDatBanService {
 
         // REALTIME: Đổi màu bàn từ vàng (Đã đặt) sang đỏ (Có khách)
         firebaseRealtimeService.updateMultipleBansStatus(bansToUpdate);
+
+        // --- 🌟 THÊM BLOCK THÔNG BÁO ĐẨY NÀY VÀO CUỐI HÀM ---
+        try {
+            firebaseMessagingService.sendNotificationToTopic("THU_NGAN",
+                    "🏃 Khách đặt bàn đã đến!",
+                    "Khách hàng " + phieu.getTenKhachHang() + " đã check-in vào bàn thành công.");
+        } catch (Exception e) {
+            System.out.println("⚠️ Lỗi FCM checkIn: " + e.getMessage());
+        }
 
         return setBanToResponse(phieuDatBanMapper.toResponse(phieu), banResponses);
     }

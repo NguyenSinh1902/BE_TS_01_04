@@ -74,7 +74,8 @@ public class HoaDonServiceImpl implements HoaDonService {
     @Override
     @Transactional(readOnly = true)
     public List<HoaDonResponse> layTatCaHoaDon() {
-        return hoaDonRepository.findAll(Sort.by(Sort.Direction.DESC, "thoiGianTao"))
+        // Thay vì dùng findAll() mặc định, gọi hàm Native Query của mình
+        return hoaDonRepository.findAllInvoicesIncludingDeleted()
                 .stream()
                 .map(this::mapToResponseFull)
                 .collect(Collectors.toList());
@@ -282,12 +283,19 @@ public class HoaDonServiceImpl implements HoaDonService {
 
         // 2. THÔNG BÁO ĐẨY: Nếu món đã pha chế xong
         if (trangThaiMoi == TrangThaiHoaDon.CHO_LAY_MON) {
-            String fcmTokenNhanVien = hd.getThuNgan().getFcmToken();
             String title = "☕ Món đã xong!";
             String body = "Đơn hàng tại bàn " + getTenBans(hd) + " đã pha chế xong. Hãy tới quầy lấy món!";
 
-            // Gửi đích danh cho nhân viên phục vụ đơn này
-            firebaseMessagingService.sendNotification(fcmTokenNhanVien, title, body);
+            // GIẢI PHÁP MỚI: Không thèm lấy idThuNgan nữa, gửi thông báo theo nhóm quyền (Topic)
+            // Tất cả máy app chạy quyền PHUC_VU đăng ký vào topic này sẽ nhận được hết
+            String topicName = "PHUC_VU";
+
+            try {
+                // Thay vì truyền fcmToken cá nhân, ông dùng hàm gửi theo Topic của Firebase
+                firebaseMessagingService.sendNotificationToTopic(topicName, title, body);
+            } catch (Exception e) {
+                System.out.println("⚠️ Lỗi gửi thông báo Topic: " + e.getMessage());
+            }
         }
 
         hoaDonRepository.save(hd);
@@ -301,6 +309,7 @@ public class HoaDonServiceImpl implements HoaDonService {
     @Override
     @Transactional
     public void huyHoaDon(Integer id) {
+        String finalHd1;
         HoaDon hd = hoaDonRepository.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException("Hóa đơn không tồn tại"));
 
@@ -322,7 +331,24 @@ public class HoaDonServiceImpl implements HoaDonService {
 
         hd.setTrangThai(TrangThaiHoaDon.DA_HUY);
         hd.setThoiGianXoa(System.currentTimeMillis());
-        hoaDonRepository.save(hd);
+        HoaDon finalHd = hoaDonRepository.save(hd);
+
+        // --- 🌟 THÊM DÒNG NÀY ĐỂ REALTIME HOẠT ĐỘNG 🌟 ---
+        // Hàm này sẽ đẩy trạng thái "DA_HUY" lên Firebase giúp danh sách đơn hàng bên FE tự biến mất/cập nhật lại
+        updateOrderRealtime(finalHd);
+
+        // 🔔 🚨 THÔNG BÁO KHẨN CẤP ĐẾN TOÀN BỘ CÁC BÊN (FCM)
+        try {
+            String tenBan = finalHd.getPhieuDatBan() != null ? getTenBans(finalHd) : "Mang về";
+            String tieuDe = "🚨 CẢNH BÁO: HỦY ĐƠN HÀNG!";
+            String noiDung = "Hóa đơn #" + finalHd.getIdHoaDon() + " tại " + tenBan + " đã bị HỦY!";
+
+            firebaseMessagingService.sendNotificationToTopic("admin", tieuDe, noiDung);
+            firebaseMessagingService.sendNotificationToTopic("THU_NGAN", tieuDe, noiDung);
+            firebaseMessagingService.sendNotificationToTopic("PHUC_VU", tieuDe, noiDung);
+        } catch (Exception e) {
+            System.out.println("⚠️ Lỗi phát tán thông báo hủy đơn: " + e.getMessage());
+        }
     }
 
     @Override
@@ -338,7 +364,12 @@ public class HoaDonServiceImpl implements HoaDonService {
         napDanhSachMonVaoHoaDon(hd, requests);
         tinhToanTaiChinh(hd);
 
-        hoaDonRepository.save(hd);
+        HoaDon finalHd = hoaDonRepository.save(hd);
+
+        // --- 🌟 THÊM DÒNG REALTIME CHIẾN LƯỢC NÀY 🌟 ---
+        // Đẩy danh sách món mới + tổng tiền mới lên Firebase để màn hình Thu ngân tự nhảy số lập tức
+        updateOrderRealtime(finalHd);
+
         return layChiTiet(idHoaDon);
     }
 
@@ -417,8 +448,18 @@ public class HoaDonServiceImpl implements HoaDonService {
         hd.setTrangThai(TrangThaiHoaDon.CHO_THANH_TOAN);
         hd.setThoiGianYeuCau(LocalDateTime.now());
 
-        hoaDonRepository.save(hd);
+        HoaDon finalHd = hoaDonRepository.save(hd);
         hoaDonRepository.flush();
+
+        // 🔔 THÔNG BÁO ĐẾN THU NGÂN ĐỂ IN BILL
+        try {
+            String tenBan = finalHd.getPhieuDatBan() != null ? getTenBans(finalHd) : "Mang về";
+            firebaseMessagingService.sendNotificationToTopic("THU_NGAN",
+                    "💵 Khách gọi thanh toán!",
+                    tenBan + " đang yêu cầu thanh toán hóa đơn #" + finalHd.getIdHoaDon());
+        } catch (Exception e) {
+            System.out.println("⚠️ Lỗi thông báo yêu cầu thanh toán: " + e.getMessage());
+        }
 
         return layChiTiet(idHoaDon);
     }
@@ -501,9 +542,11 @@ public class HoaDonServiceImpl implements HoaDonService {
         hd.setPhuongThucThanhToan(request.phuongThuc());
         hd.setThoiGianThanhToan(LocalDateTime.now());
 
-        // 5. Tích điểm
+        // 5. TÍCH ĐIỂM (Quy đổi: 50.000đ = 1 điểm)
         if (hd.getKhachHang() != null) {
-            int diemMoi = hd.getTongThanhToan().divide(new BigDecimal("10000"), 0, RoundingMode.DOWN).intValue();
+            BigDecimal mocTichDiem = new BigDecimal("50000");
+            int diemMoi = hd.getTongThanhToan().divide(mocTichDiem, 0, RoundingMode.DOWN).intValue();
+
             if (diemMoi > 0) {
                 khachHangService.tichDiemVaThangHang(hd.getKhachHang().getIdKhachHang(), diemMoi);
             }
@@ -528,11 +571,15 @@ public class HoaDonServiceImpl implements HoaDonService {
         // Để App Thu ngân/Quản lý cập nhật lại danh sách đơn hàng mà không cần F5
         updateOrderRealtime(finalHd);
 
-        // 9. THÔNG BÁO ĐẨY (FCM)
-        // Báo cho Admin/Quản lý biết vừa có doanh thu mới
-        firebaseMessagingService.sendNotificationToTopic("admin",
-                "Thanh toán thành công",
-                "Hóa đơn #" + finalHd.getIdHoaDon() + " đã thu: " + String.format("%,.0f", finalHd.getTongThanhToan()) + " VNĐ");
+        // 9. 🔔 THÔNG BÁO ĐẨY (FCM) - CHỈ GỬI CHO PHỤC VỤ
+        try {
+            String tenBan = finalHd.getPhieuDatBan() != null ? getTenBans(finalHd) : "Mang về";
+            firebaseMessagingService.sendNotificationToTopic("PHUC_VU",
+                    "✅ Bàn đã thanh toán",
+                    "Đơn hàng tại " + tenBan + " đã được thanh toán xong. Phục vụ chuẩn bị dọn bàn!");
+        } catch (Exception e) {
+            System.out.println("⚠️ Lỗi thông báo thanh toán cho Phục vụ: " + e.getMessage());
+        }
 
         return mapToResponseFull(finalHd);
     }
@@ -552,7 +599,24 @@ public class HoaDonServiceImpl implements HoaDonService {
             phieuDatBanService.hoanTatPhieu(hd.getPhieuDatBan().getIdPhieuDat());
         }
 
-        hoaDonRepository.save(hd);
+        HoaDon finalHd = hoaDonRepository.save(hd);
+
+        // 🔔 🌟 THÔNG BÁO TỔNG KẾT HOÀN TẤT ĐẾN TOÀN BỘ HỆ THỐNG
+        try {
+            String tenBan = finalHd.getPhieuDatBan() != null ? getTenBans(finalHd) : "Mang về";
+            String formatTien = String.format("%,.0f", finalHd.getTongThanhToan());
+
+            String tieuDe = "📈 Đơn hàng hoàn tất!";
+            String noiDung = "Hóa đơn #" + finalHd.getIdHoaDon() + " tại " + tenBan + " đã đóng ca. (Thu: " + formatTien + "đ)";
+
+            // Bắn thông báo đồng loạt cho cả 3 nhóm quầy
+            firebaseMessagingService.sendNotificationToTopic("admin", tieuDe, noiDung);
+            firebaseMessagingService.sendNotificationToTopic("THU_NGAN", tieuDe, "Hóa đơn #" + finalHd.getIdHoaDon() + " (" + tenBan + ") đã đóng ca thành công.");
+            firebaseMessagingService.sendNotificationToTopic("PHUC_VU", tieuDe, "Hệ thống đã giải phóng " + tenBan + ". Sẵn sàng đón lượt khách mới!");
+
+        } catch (Exception e) {
+            System.out.println("⚠️ Lỗi phát tán thông báo hoàn tất đơn: " + e.getMessage());
+        }
     }
 
     private void capNhatCauHinhGiamGiaVaThuePhi(HoaDon hd, ThanhToanRequest request) {

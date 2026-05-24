@@ -99,10 +99,27 @@ public class AiStrategyServiceImpl implements AiStrategyService {
         return nhatKyAiMapper.toResponse(nhatKyAiRepository.save(nhatKy));
     }
 
+//    @Override
+//    public List<NhatKyAiResponse> layLichSuTheoNgay(LocalDate ngay) {
+//        return nhatKyAiRepository.findByNgayPhanTichOrderByThoiGianTaoDesc(ngay)
+//                .stream()
+//                .map(nhatKyAiMapper::toResponse)
+//                .collect(Collectors.toList());
+//    }
+
     @Override
     public List<NhatKyAiResponse> layLichSuTheoNgay(LocalDate ngay) {
-        return nhatKyAiRepository.findByNgayPhanTichOrderByThoiGianTaoDesc(ngay)
-                .stream()
+        List<NhatKyAi> danhSachLog;
+
+        if (ngay == null) {
+            // Nếu không truyền ngày -> Lấy tất cả
+            danhSachLog = nhatKyAiRepository.findAllByOrderByThoiGianTaoDesc();
+        } else {
+            // Nếu có truyền ngày -> Lọc theo ngày chuẩn chỉ
+            danhSachLog = nhatKyAiRepository.findByNgayPhanTichOrderByThoiGianTaoDesc(ngay);
+        }
+
+        return danhSachLog.stream()
                 .map(nhatKyAiMapper::toResponse)
                 .collect(Collectors.toList());
     }

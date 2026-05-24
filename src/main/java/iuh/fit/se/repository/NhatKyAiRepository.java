@@ -10,4 +10,7 @@ import java.util.List;
 public interface NhatKyAiRepository extends JpaRepository<NhatKyAi, Integer> {
     // Tìm kiếm lịch sử theo ngày để Admin dễ theo dõi
     List<NhatKyAi> findByNgayPhanTichOrderByThoiGianTaoDesc(LocalDate ngay);
+
+    // Lấy tất cả lịch sử phân tích AI
+    List<NhatKyAi> findAllByOrderByThoiGianTaoDesc();
 }
