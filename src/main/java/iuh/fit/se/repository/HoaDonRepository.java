@@ -133,4 +133,8 @@ public interface HoaDonRepository extends JpaRepository<HoaDon, Integer> {
     // Dùng nativeQuery = true để bỏ qua điều kiện thoi_gian_xoa = 0 của Hibernate
     @Query(value = "SELECT * FROM hoa_don ORDER BY thoi_gian_tao DESC", nativeQuery = true)
     List<HoaDon> findAllInvoicesIncludingDeleted();
+
+    // Tìm chi tiết hóa đơn bằng SQL thuần để bỏ qua bộ lọc xóa mềm của Hibernate
+    @Query(value = "SELECT * FROM hoa_don WHERE id_hoa_don = :id", nativeQuery = true)
+    Optional<HoaDon> findByIdIncludingDeleted(@Param("id") Integer id);
 }

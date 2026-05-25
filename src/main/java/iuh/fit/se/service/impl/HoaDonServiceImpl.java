@@ -177,7 +177,8 @@ public class HoaDonServiceImpl implements HoaDonService {
     @Override
     @Transactional(readOnly = true)
     public HoaDonResponse layChiTiet(Integer id) {
-        HoaDon hd = hoaDonRepository.findById(id)
+        // 🌟 SỬA DÒNG NÀY: Gọi findByIdIncludingDeleted thay vì findById
+        HoaDon hd = hoaDonRepository.findByIdIncludingDeleted(id)
                 .orElseThrow(() -> new ResourceNotFoundException("Hóa đơn không tồn tại"));
         return mapToResponseFull(hd);
     }
