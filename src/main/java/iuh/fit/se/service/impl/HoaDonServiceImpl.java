@@ -921,4 +921,26 @@ public class HoaDonServiceImpl implements HoaDonService {
         // Chuyển đổi từ Page<Entity> sang Page<Response>
         return hoaDons.map(this::mapToResponseFull);
     }
+
+    @Override
+    public QrCodeResponse taoMaQrThanhToan(Integer idHoaDon) {
+        HoaDon hd = hoaDonRepository.findById(idHoaDon)
+                .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy hóa đơn"));
+
+        // 1. Cấu hình thông tin ngân hàng của quán MatchTea
+        String bankId = "970416"; // Mã định danh ngân hàng (Ví dụ: 970416 là ACB, 970415 là VietinBank, 970436 là Vietcombank)
+        String accountNo = "123456789"; // Số tài khoản ngân hàng của ông
+        String template = "qr_only"; // Chỉ lấy ảnh QR, không lấy khung ngoài
+
+        // 2. Lấy số tiền và tạo nội dung chuyển khoản từ Hóa đơn
+        int soTien = hd.getTongThanhToan().intValue();
+        String noiDung = "MATCHTEA_HD" + hd.getIdHoaDon(); // Nội dung không dấu, không khoảng trắng rườm rà
+
+        // 3. Ghép chuỗi theo đúng cú pháp API công khai của VietQR
+        // Cú pháp: https://img.vietqr.io/image/<BANK_ID>-<ACCOUNT_NO>-<TEMPLATE>.png?amount=<AMOUNT>&addInfo=<DESCRIPTION>
+        String qrImageUrl = String.format("https://img.vietqr.io/image/%s-%s-%s.png?amount=%d&addInfo=%s",
+                bankId, accountNo, template, soTien, noiDung);
+
+        return new QrCodeResponse(qrImageUrl, noiDung);
+    }
 }

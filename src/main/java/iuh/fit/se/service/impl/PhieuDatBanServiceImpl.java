@@ -213,6 +213,8 @@ public class PhieuDatBanServiceImpl implements PhieuDatBanService {
 
             ban.setTinhTrangBan(TinhTrangBan.CO_KHACH);
             banRepository.save(ban);
+
+            listBanThayDoi.add(ban);
         }
 
         // 1. REALTIME: Ép các bàn mới gộp phải đổi sang màu ĐỎ (CO_KHACH) trên sơ đồ
@@ -301,7 +303,7 @@ public class PhieuDatBanServiceImpl implements PhieuDatBanService {
     @Override
     @Transactional
     public void xuLyHuyPhieuQuaHan() {
-        LocalDateTime threshold = LocalDateTime.now().minusMinutes(1);
+        LocalDateTime threshold = LocalDateTime.now().minusMinutes(1); // đang để 1p để dễ test, sau này có thể chỉnh thành 15p. nếu sau 15p mà khách vẫn chưa check-in thì tự động hủy phiếu
         List<PhieuDatBan> quaHan = phieuDatBanRepository.findByTrangThaiDatAndThoiGianDatBefore(TrangThaiDatBan.CHO_DEN, threshold);
         quaHan.forEach(p -> huyPhieu(p.getIdPhieuDat()));
     }

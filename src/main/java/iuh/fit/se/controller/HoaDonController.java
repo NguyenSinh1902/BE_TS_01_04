@@ -135,4 +135,9 @@ public class HoaDonController {
 
         return ResponseEntity.ok(hoaDonService.layLichSuHoaDonKhachHang(idKhachHang, page, size));
     }
+
+    @GetMapping("/{id}/qr-code")
+    public ResponseEntity<QrCodeResponse> getQrCode(@PathVariable Integer id) {
+        return ResponseEntity.ok(hoaDonService.taoMaQrThanhToan(id));
+    }
 }

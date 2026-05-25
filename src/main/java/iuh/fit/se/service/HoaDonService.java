@@ -3,6 +3,7 @@ package iuh.fit.se.service;
 import iuh.fit.se.dto.hoadon.HoaDonRequest;
 import iuh.fit.se.dto.hoadon.HoaDonResponse;
 import iuh.fit.se.dto.chitiethoadon.ChiTietHoaDonRequest;
+import iuh.fit.se.dto.hoadon.QrCodeResponse;
 import iuh.fit.se.dto.hoadon.ThanhToanRequest;
 import iuh.fit.se.enums.LoaiDonHang;
 import iuh.fit.se.enums.PhuongThucThanhToan;
@@ -44,4 +45,6 @@ public interface HoaDonService {
     HoaDonResponse capNhatTrangThai(Integer idHoaDon, TrangThaiHoaDon trangThaiMoi);
 
     Page<HoaDonResponse> layLichSuHoaDonKhachHang(Integer idKhachHang, int page, int size);
+
+    QrCodeResponse taoMaQrThanhToan(Integer idHoaDon);
 }
