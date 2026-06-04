@@ -15,5 +15,7 @@ public interface PhieuDatBanRepository extends JpaRepository<PhieuDatBan, Intege
     Optional<PhieuDatBan> findActiveById(Integer id);
 
     List<PhieuDatBan> findByTrangThaiDatAndThoiGianDatBefore(TrangThaiDatBan trangThai, LocalDateTime time);
+
+    List<PhieuDatBan> findBySdtKhachHangOrderByThoiGianDatDesc(String sdt);
 }
 

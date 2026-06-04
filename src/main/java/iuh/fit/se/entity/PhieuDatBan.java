@@ -16,7 +16,7 @@ public class PhieuDatBan {
     private Integer idPhieuDat;
 
     @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "id_nhan_vien_phuc_vu", nullable = false)
+    @JoinColumn(name = "id_nhan_vien_phuc_vu", nullable = true)
     private NhanVien nhanVienPhucVu;
 
     @Column(name = "ten_khach_hang", length = 100)

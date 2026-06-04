@@ -86,6 +86,15 @@ public class SecurityConfig {
                         // Phiếu đặt, Hóa đơn, Thống kê, Gợi ý món
                         .requestMatchers("/api/phieu-dat-ban/**", "/api/hoa-don/**", "/api/thong-ke/**", "/api/goi-y/**").authenticated()
 
+                        // App Bếp & Quản lý Kho
+                        .requestMatchers(HttpMethod.GET, "/api/bep-kho/**").authenticated() // Mọi nhân viên (Thu ngân, Phục vụ) đều cần xem tồn kho
+                        .requestMatchers("/api/bep-kho/config/**").hasAnyRole("ADMIN", "PHA_CHE") // Pha chế/Admin được cài đặt định lượng/công thức
+                        .requestMatchers("/api/bep-kho/**").hasAnyRole("ADMIN", "PHA_CHE") // Pha chế/Admin thao tác chế biến, xong món, nhập kho
+
+                        // App Khách Hàng (Customer App)
+                        .requestMatchers("/api/app-khach/**").hasRole("KHACH_HANG")
+                        .requestMatchers("/api/vnpay/**").permitAll() // Webhook IPN của VNPAY phải được public
+
                         // Mặc định các request khác phải đăng nhập
                         .anyRequest().authenticated()
                 )

@@ -22,6 +22,10 @@ public interface PhieuDatBanService {
 
     List<PhieuDatBanResponse> layPhieuDangHoatDong();
 
+    List<PhieuDatBanResponse> layPhieuChoXacNhan();
+
+    PhieuDatBanResponse xepBan(Integer idPhieu, Integer idBan);
+
     PhieuDatBanResponse checkIn(Integer idPhieu);
 
     void giaiPhongBanKhiHuyHoaDon(Integer idPhieu);

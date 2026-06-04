@@ -422,4 +422,56 @@ public class PhieuDatBanServiceImpl implements PhieuDatBanService {
 
         return setBanToResponse(phieuDatBanMapper.toResponse(phieu), banResponses);
     }
+
+    @Override
+    @Transactional(readOnly = true)
+    public List<PhieuDatBanResponse> layPhieuChoXacNhan() {
+        return phieuDatBanRepository.findAll().stream()
+                .filter(p -> p.getTrangThaiDat() == TrangThaiDatBan.CHO_XAC_NHAN)
+                .map(this::convertToResponseWithBans)
+                .collect(Collectors.toList());
+    }
+
+    @Override
+    @Transactional
+    public PhieuDatBanResponse xepBan(Integer idPhieu, Integer idBan) {
+        PhieuDatBan phieu = phieuDatBanRepository.findActiveById(idPhieu)
+                .orElseThrow(() -> new ResourceNotFoundException("Phiếu đặt bàn không tồn tại!"));
+
+        if (phieu.getTrangThaiDat() != TrangThaiDatBan.CHO_XAC_NHAN) {
+            throw new BadRequestException("Chỉ phiếu CHO_XAC_NHAN mới được xếp bàn!");
+        }
+
+        Ban ban = banRepository.findActiveById(idBan)
+                .orElseThrow(() -> new NotFoundException("Bàn " + idBan + " không tồn tại!"));
+
+        if (ban.getTinhTrangBan() != TinhTrangBan.TRONG) {
+            throw new BadRequestException("Bàn " + ban.getTenBan() + " đang bận!");
+        }
+
+        Integer idPhucVu = SecurityUtils.getCurrentIdNhanVien();
+        if (idPhucVu == null) throw new AccessDeniedException("Vui lòng đăng nhập!");
+
+        phieu.setNhanVienPhucVu(nhanVienRepository.getReferenceById(idPhucVu));
+        
+        ChiTietDatBan ct = new ChiTietDatBan();
+        ct.setPhieuDatBan(phieu);
+        ct.setBan(ban);
+        chiTietDatBanRepository.save(ct);
+
+        if (phieu.getThoiGianDat().isBefore(LocalDateTime.now().plusMinutes(5))) {
+            phieu.setTrangThaiDat(TrangThaiDatBan.DA_DEN);
+            ban.setTinhTrangBan(TinhTrangBan.CO_KHACH);
+        } else {
+            phieu.setTrangThaiDat(TrangThaiDatBan.CHO_DEN);
+            ban.setTinhTrangBan(TinhTrangBan.DA_DAT);
+        }
+        
+        banRepository.save(ban);
+        phieuDatBanRepository.save(phieu);
+
+        firebaseRealtimeService.updateMultipleBansStatus(List.of(ban));
+
+        return setBanToResponse(phieuDatBanMapper.toResponse(phieu), List.of(banMapper.toResponse(ban)));
+    }
 }

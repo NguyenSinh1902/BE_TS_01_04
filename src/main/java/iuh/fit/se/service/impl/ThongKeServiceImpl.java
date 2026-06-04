@@ -296,4 +296,36 @@ public class ThongKeServiceImpl implements ThongKeService {
 
         return danhSachResponse;
     }
+
+    @Override
+    public Map<String, Object> layBaoCaoTaiChinhNgay(LocalDate ngay) {
+        // 1. Lấy tất cả các hóa đơn đã hoàn thành trong ngày hôm đó
+        List<iuh.fit.se.entity.HoaDon> danhSachHoaDon = hoaDonRepository.findByDateRange(ngay.atStartOfDay(), ngay.atTime(23, 59, 59)).stream()
+                .filter(h -> h.getTrangThai() == iuh.fit.se.enums.TrangThaiHoaDon.DA_THANH_TOAN || h.getTrangThai() == iuh.fit.se.enums.TrangThaiHoaDon.HOAN_TAT)
+                .collect(Collectors.toList());
+
+        BigDecimal tongDoanhThu = BigDecimal.ZERO;
+        BigDecimal tongGiaVon = BigDecimal.ZERO;
+
+        // Duyệt qua danh sách đơn hàng để tính toán
+        for (iuh.fit.se.entity.HoaDon hd : danhSachHoaDon) {
+             tongDoanhThu = tongDoanhThu.add(hd.getTongThanhToan());
+             for (iuh.fit.se.entity.ChiTietHoaDon cthd : hd.getDanhSachChiTiet()) {
+                 // Tổng giá vốn = Số lượng mua x Giá vốn đơn vị của món đó
+                 BigDecimal giaVonChiTiet = BigDecimal.valueOf(cthd.getSoLuong()).multiply(cthd.getGiaVonDonVi());
+                 tongGiaVon = tongGiaVon.add(giaVonChiTiet);
+             }
+        }
+
+        // Lợi nhuận thực tế thu về = Doanh thu - Chi phí giá vốn nguyên liệu
+        BigDecimal loiNhuanGop = tongDoanhThu.subtract(tongGiaVon);
+
+        Map<String, Object> bieuDoTaiChinh = new HashMap<>();
+        bieuDoTaiChinh.put("ngayPhanTich", ngay.toString());
+        bieuDoTaiChinh.put("tongDoanhThu", tongDoanhThu);
+        bieuDoTaiChinh.put("tongChiPhiNguyenLieu", tongGiaVon);
+        bieuDoTaiChinh.put("loiNhuanRong", loiNhuanGop);
+
+        return bieuDoTaiChinh;
+    }
 }

@@ -1,3 +1,3 @@
 package iuh.fit.se.enums;
 
-public enum LoaiDonHang { TAI_BAN, MANG_VE }
+public enum LoaiDonHang { TAI_BAN, MANG_VE, GIAO_HANG }

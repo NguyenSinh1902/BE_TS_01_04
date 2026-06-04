@@ -22,6 +22,18 @@ public class KhachHang {
     @Column(name = "so_dien_thoai", nullable = false, length = 15)
     private String soDienThoai;
 
+    @Column(name = "email", length = 100, unique = true)
+    private String email;
+
+    @Column(name = "mat_khau", length = 255)
+    private String matKhau;
+
+    @Column(name = "ma_otp", length = 6)
+    private String maOtp;
+
+    @Column(name = "thoi_han_otp")
+    private java.time.LocalDateTime thoiHanOtp;
+
     @Enumerated(EnumType.STRING)
     @Column(name = "gioi_tinh", length = 10)
     private GioiTinh gioiTinh;
@@ -128,6 +140,38 @@ public class KhachHang {
 
     public void setThoiGianXoa(Long thoiGianXoa) {
         this.thoiGianXoa = thoiGianXoa;
+    }
+
+    public String getEmail() {
+        return email;
+    }
+
+    public void setEmail(String email) {
+        this.email = email;
+    }
+
+    public String getMatKhau() {
+        return matKhau;
+    }
+
+    public void setMatKhau(String matKhau) {
+        this.matKhau = matKhau;
+    }
+
+    public String getMaOtp() {
+        return maOtp;
+    }
+
+    public void setMaOtp(String maOtp) {
+        this.maOtp = maOtp;
+    }
+
+    public java.time.LocalDateTime getThoiHanOtp() {
+        return thoiHanOtp;
+    }
+
+    public void setThoiHanOtp(java.time.LocalDateTime thoiHanOtp) {
+        this.thoiHanOtp = thoiHanOtp;
     }
 
     public void capNhatHangThanhVien() {

@@ -52,8 +52,9 @@ public class HoaDonServiceImpl implements HoaDonService {
     private final ThuePhiRepository thuePhiRepository;
     private final FirebaseRealtimeService firebaseRealtimeService;
     private final FirebaseMessagingService firebaseMessagingService;
+    private final NguyenLieuService nguyenLieuService;
 
-    public HoaDonServiceImpl(HoaDonRepository hoaDonRepository, PhieuDatBanRepository phieuDatBanRepository, NhanVienRepository nhanVienRepository, KhachHangRepository khachHangRepository, BienTheSanPhamRepository bienTheRepository, KhachHangService khachHangService, HoaDonMapper hoaDonMapper, KhuyenMaiService khuyenMaiService, KhuyenMaiRepository khuyenMaiRepository, PhieuDatBanService phieuDatBanService, ChiTietDatBanRepository chiTietDatBanRepository, SanPhamRepository sanPhamRepository, ThuePhiRepository thuePhiRepository, FirebaseRealtimeService firebaseRealtimeService, FirebaseMessagingService firebaseMessagingService) {
+    public HoaDonServiceImpl(HoaDonRepository hoaDonRepository, PhieuDatBanRepository phieuDatBanRepository, NhanVienRepository nhanVienRepository, KhachHangRepository khachHangRepository, BienTheSanPhamRepository bienTheRepository, KhachHangService khachHangService, HoaDonMapper hoaDonMapper, KhuyenMaiService khuyenMaiService, KhuyenMaiRepository khuyenMaiRepository, PhieuDatBanService phieuDatBanService, ChiTietDatBanRepository chiTietDatBanRepository, SanPhamRepository sanPhamRepository, ThuePhiRepository thuePhiRepository, FirebaseRealtimeService firebaseRealtimeService, FirebaseMessagingService firebaseMessagingService, NguyenLieuService nguyenLieuService) {
         this.hoaDonRepository = hoaDonRepository;
         this.phieuDatBanRepository = phieuDatBanRepository;
         this.nhanVienRepository = nhanVienRepository;
@@ -69,6 +70,7 @@ public class HoaDonServiceImpl implements HoaDonService {
         this.thuePhiRepository = thuePhiRepository;
         this.firebaseRealtimeService = firebaseRealtimeService;
         this.firebaseMessagingService = firebaseMessagingService;
+        this.nguyenLieuService = nguyenLieuService;
     }
 
     @Override
@@ -260,43 +262,74 @@ public class HoaDonServiceImpl implements HoaDonService {
         HoaDon hd = hoaDonRepository.findById(idHoaDon)
                 .orElseThrow(() -> new ResourceNotFoundException("Hóa đơn không tồn tại"));
 
-        if (hd.getTrangThai() == TrangThaiHoaDon.HOAN_TAT || hd.getTrangThai() == TrangThaiHoaDon.DA_HUY) {
+        TrangThaiHoaDon hienTai = hd.getTrangThai();
+
+        if (hienTai == TrangThaiHoaDon.HOAN_TAT || hienTai == TrangThaiHoaDon.DA_HUY) {
             throw new BadRequestException("Hóa đơn đã đóng hoặc đã hủy, không thể thay đổi trạng thái!");
+        }
+
+        // --- ENFORCE STATE MACHINE LOGIC ---
+        if (trangThaiMoi == TrangThaiHoaDon.DANG_PHA_CHE) {
+            if (hienTai != TrangThaiHoaDon.CHO_XAC_NHAN) {
+                throw new BadRequestException("Chỉ đơn đang chờ xác nhận mới có thể chuyển sang Đang pha chế!");
+            }
+            try {
+                String tenBan = hd.getPhieuDatBan() != null ? getTenBans(hd) : "Mang về";
+                firebaseMessagingService.sendNotificationToTopic("PHA_CHE", "🔔 Đơn hàng mới!", "Chuẩn bị pha chế cho đơn " + tenBan);
+            } catch (Exception e) {
+                System.err.println("⚠️ [FCM] Lỗi gửi thông báo PHA_CHE: " + e.getMessage());
+            }
+        } 
+        else if (trangThaiMoi == TrangThaiHoaDon.CHO_LAY_MON) {
+            if (hienTai != TrangThaiHoaDon.DANG_PHA_CHE) {
+                throw new BadRequestException("Đơn hàng phải đang pha chế thì mới có thể Báo xong món!");
+            }
+            try {
+                String tenBan = hd.getPhieuDatBan() != null ? getTenBans(hd) : "Mang về";
+                String topic = (hd.getLoaiDonHang() == LoaiDonHang.TAI_BAN) ? "phuc_vu" : "thu_ngan";
+                firebaseMessagingService.sendNotificationToTopic(topic, "☕ Món đã xong!", "Đơn hàng " + tenBan + " đã pha chế xong. Hãy tới lấy món!");
+            } catch (Exception e) {
+                System.err.println("⚠️ [FCM] Lỗi gửi thông báo Món đã xong: " + e.getMessage());
+            }
+        } 
+        else if (trangThaiMoi == TrangThaiHoaDon.DANG_PHUC_VU) {
+            if (hienTai != TrangThaiHoaDon.CHO_LAY_MON) {
+                throw new BadRequestException("Chưa pha chế xong, không thể chuyển sang Đang phục vụ!");
+            }
+            if (hd.getLoaiDonHang() != LoaiDonHang.TAI_BAN) {
+                throw new BadRequestException("Đơn mang về không có trạng thái Đang phục vụ!");
+            }
+        } 
+        else if (trangThaiMoi == TrangThaiHoaDon.DANG_GIAO_HANG) {
+            if (hienTai != TrangThaiHoaDon.CHO_LAY_MON) {
+                throw new BadRequestException("Chưa pha chế xong, không thể giao hàng!");
+            }
+            if (hd.getLoaiDonHang() != LoaiDonHang.GIAO_HANG) {
+                throw new BadRequestException("Chỉ đơn giao hàng mới có trạng thái Đang giao hàng!");
+            }
+        }
+        else if (trangThaiMoi == TrangThaiHoaDon.HOAN_TAT) {
+            if (hd.getLoaiDonHang() == LoaiDonHang.GIAO_HANG) {
+                if (hienTai != TrangThaiHoaDon.DANG_GIAO_HANG && hienTai != TrangThaiHoaDon.DA_THANH_TOAN) {
+                    throw new BadRequestException("Đơn giao hàng phải đang giao hoặc đã thanh toán mới có thể hoàn tất!");
+                }
+            } else if (hd.getLoaiDonHang() == LoaiDonHang.MANG_VE) {
+                if (hienTai != TrangThaiHoaDon.CHO_LAY_MON && hienTai != TrangThaiHoaDon.DA_THANH_TOAN) {
+                    throw new BadRequestException("Đơn mang về phải pha chế xong hoặc đã thanh toán mới có thể hoàn tất!");
+                }
+            } else {
+                throw new BadRequestException("Chỉ đơn giao hàng và mang về mới có thể cập nhật trực tiếp thành Hoàn tất!");
+            }
+        }
+        else {
+            throw new BadRequestException("Hành động không hợp lệ! Vui lòng dùng các chức năng Thanh toán, Yêu cầu thanh toán, hoặc Hủy đơn.");
         }
 
         hd.setTrangThai(trangThaiMoi);
 
-        // CHẶN: Không cho phép cập nhật các trạng thái nghiệp vụ quan trọng qua hàm này
-        List<TrangThaiHoaDon> forbiddenStates = List.of(
-                TrangThaiHoaDon.DA_THANH_TOAN,
-                TrangThaiHoaDon.HOAN_TAT,
-                TrangThaiHoaDon.DA_HUY
-        );
-
-        if (forbiddenStates.contains(trangThaiMoi)) {
-            throw new BadRequestException("Không thể cập nhật trạng thái này trực tiếp. Vui lòng thực hiện qua chức năng Thanh toán hoặc Hủy đơn!");
-        }
-
-        // 1. Nếu hoàn tất hóa đơn -> Giải phóng bàn (Realtime Database)
-        if (trangThaiMoi == TrangThaiHoaDon.HOAN_TAT && hd.getPhieuDatBan() != null) {
-            phieuDatBanService.hoanTatPhieu(hd.getPhieuDatBan().getIdPhieuDat());
-        }
-
-        // 2. THÔNG BÁO ĐẨY: Nếu món đã pha chế xong
-        if (trangThaiMoi == TrangThaiHoaDon.CHO_LAY_MON) {
-            String title = "☕ Món đã xong!";
-            String body = "Đơn hàng tại bàn " + getTenBans(hd) + " đã pha chế xong. Hãy tới quầy lấy món!";
-
-            // GIẢI PHÁP MỚI: Không thèm lấy idThuNgan nữa, gửi thông báo theo nhóm quyền (Topic)
-            // Tất cả máy app chạy quyền PHUC_VU đăng ký vào topic này sẽ nhận được hết
-            String topicName = "PHUC_VU";
-
-            try {
-                // Thay vì truyền fcmToken cá nhân, ông dùng hàm gửi theo Topic của Firebase
-                firebaseMessagingService.sendNotificationToTopic(topicName, title, body);
-            } catch (Exception e) {
-                System.out.println("⚠️ Lỗi gửi thông báo Topic: " + e.getMessage());
-            }
+        // NẾU HOÀN TẤT, TỰ ĐỘNG VÉT KHO NHỮNG MÓN CHƯA ĐƯỢC BARISTA TRỪ
+        if (trangThaiMoi == TrangThaiHoaDon.HOAN_TAT) {
+            autoDeductInventoryIfNeed(hd);
         }
 
         hoaDonRepository.save(hd);
@@ -563,6 +596,7 @@ public class HoaDonServiceImpl implements HoaDonService {
 
         if (hd.getLoaiDonHang() == LoaiDonHang.MANG_VE) {
             hd.setTrangThai(TrangThaiHoaDon.HOAN_TAT);
+            autoDeductInventoryIfNeed(hd); // Auto trừ kho cho mang về
         }
 
         // 7. Lưu vào SQL
@@ -595,6 +629,7 @@ public class HoaDonServiceImpl implements HoaDonService {
         }
 
         hd.setTrangThai(TrangThaiHoaDon.HOAN_TAT);
+        autoDeductInventoryIfNeed(hd);
 
         if (hd.getPhieuDatBan() != null) {
             phieuDatBanService.hoanTatPhieu(hd.getPhieuDatBan().getIdPhieuDat());
@@ -617,6 +652,17 @@ public class HoaDonServiceImpl implements HoaDonService {
 
         } catch (Exception e) {
             System.out.println("⚠️ Lỗi phát tán thông báo hoàn tất đơn: " + e.getMessage());
+        }
+    }
+
+    private void autoDeductInventoryIfNeed(HoaDon hd) {
+        if (hd.getDanhSachChiTiet() != null) {
+            for (ChiTietHoaDon ct : hd.getDanhSachChiTiet()) {
+                // Nếu giá vốn = 0 tức là Barista chưa hề bấm Xong Món cho chi tiết này
+                if (ct.getGiaVonDonVi().compareTo(BigDecimal.ZERO) == 0) {
+                    nguyenLieuService.bepXongMon(ct.getIdChiTiet());
+                }
+            }
         }
     }
 
@@ -943,5 +989,51 @@ public class HoaDonServiceImpl implements HoaDonService {
                 bankId, accountNo, template, soTien, noiDung);
 
         return new QrCodeResponse(qrImageUrl, noiDung);
+    }
+    @Override
+    @Transactional
+    public HoaDonResponse taoHoaDonKhachHang(iuh.fit.se.dto.khachhang.DatMonKhachRequest request, Integer idKhachHang) {
+        HoaDon hd = new HoaDon();
+
+        if (idKhachHang != null) {
+            hd.setKhachHang(khachHangRepository.findById(idKhachHang).orElse(null));
+        }
+
+        hd.setLoaiDonHang(request.loaiDonHang());
+        hd.setPhuongThucThanhToan(request.phuongThucThanhToan());
+        hd.setDiaChiGiaoHang(request.diaChiGiaoHang());
+        hd.setThoiGianHenLay(request.thoiGianHenLay());
+        hd.setGhiChuKhachHang(request.ghiChuKhachHang());
+
+        if (request.idKhuyenMai() != null) {
+            KhuyenMai km = khuyenMaiRepository.findById(request.idKhuyenMai())
+                    .orElseThrow(() -> new BadRequestException("Mã khuyến mãi không hợp lệ"));
+            hd.setKhuyenMai(km);
+        }
+
+        if (request.phuongThucThanhToan() == PhuongThucThanhToan.CHUYEN_KHOAN) {
+            hd.setTrangThai(TrangThaiHoaDon.DANG_CHO_VNPAY);
+        } else {
+            hd.setTrangThai(TrangThaiHoaDon.CHO_XAC_NHAN);
+        }
+
+        apDungThuePhiMacDinh(hd);
+        napDanhSachMonVaoHoaDon(hd, request.danhSachMon());
+        tinhToanTaiChinh(hd);
+
+        HoaDon savedHd = hoaDonRepository.save(hd);
+
+        // Nếu trả tiền mặt thì báo luôn cho NV, nếu qua VNPAY thì VNPAY IPN sẽ lo việc báo sau
+        if (savedHd.getTrangThai() == TrangThaiHoaDon.CHO_XAC_NHAN) {
+            updateOrderRealtime(savedHd);
+            try {
+                firebaseMessagingService.sendNotificationToTopic("THU_NGAN", "🔔 Đơn Online Mới!", "Có đơn đặt hàng Online mới cần xác nhận.");
+                firebaseMessagingService.sendNotificationToTopic("PHUC_VU", "🔔 Đơn Online Mới!", "Có đơn đặt hàng Online mới.");
+            } catch (Exception e) {
+                System.err.println("⚠️ [FCM] Lỗi gửi thông báo Đơn Online Mới: " + e.getMessage());
+            }
+        }
+
+        return layChiTiet(savedHd.getIdHoaDon());
     }
 }

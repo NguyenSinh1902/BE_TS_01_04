@@ -25,6 +25,18 @@ public class PhieuDatBanController {
         return ResponseEntity.status(HttpStatus.CREATED).body(phieuDatBanService.taoPhieuDatMoi(request));
     }
 
+    @GetMapping("/dang-cho-xac-nhan")
+    public ResponseEntity<List<PhieuDatBanResponse>> layPhieuChoXacNhan() {
+        return ResponseEntity.ok(phieuDatBanService.layPhieuChoXacNhan());
+    }
+
+    @PutMapping("/{idPhieu}/xep-ban")
+    public ResponseEntity<PhieuDatBanResponse> xepBan(
+            @PathVariable Integer idPhieu,
+            @RequestParam Integer idBan) {
+        return ResponseEntity.ok(phieuDatBanService.xepBan(idPhieu, idBan));
+    }
+
     @PutMapping("/{idPhieu}/doi-ban")
     public ResponseEntity<String> doiBan(
             @PathVariable Integer idPhieu,

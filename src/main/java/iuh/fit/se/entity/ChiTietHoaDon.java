@@ -36,6 +36,9 @@ public class ChiTietHoaDon {
     @Column(name = "tuy_chon_json", columnDefinition = "json")
     private String tuyChonJson;
 
+    @Column(name = "gia_von_don_vi", nullable = false, precision = 12, scale = 2)
+    private BigDecimal giaVonDonVi = BigDecimal.ZERO;
+
     @OneToMany(mappedBy = "chiTietHoaDon", cascade = CascadeType.ALL, orphanRemoval = true)
     private Set<ChiTietHoaDonTopping> danhSachTopping = new LinkedHashSet<>(); // Đổi List thành Set
 
@@ -45,7 +48,7 @@ public class ChiTietHoaDon {
     public ChiTietHoaDon() {
     }
 
-    public ChiTietHoaDon(Integer idChiTiet, HoaDon hoaDon, BienTheSanPham bienThe, Integer soLuong, BigDecimal giaThoiDiemBan, Integer phanTramGiamGia, String tuyChonJson, Long thoiGianXoa) {
+    public ChiTietHoaDon(Integer idChiTiet, HoaDon hoaDon, BienTheSanPham bienThe, Integer soLuong, BigDecimal giaThoiDiemBan, Integer phanTramGiamGia, String tuyChonJson, BigDecimal giaVonDonVi, Long thoiGianXoa) {
         this.idChiTiet = idChiTiet;
         this.hoaDon = hoaDon;
         this.bienThe = bienThe;
@@ -53,6 +56,7 @@ public class ChiTietHoaDon {
         this.giaThoiDiemBan = giaThoiDiemBan;
         this.phanTramGiamGia = phanTramGiamGia;
         this.tuyChonJson = tuyChonJson;
+        this.giaVonDonVi = giaVonDonVi;
         this.thoiGianXoa = thoiGianXoa;
     }
 
@@ -110,6 +114,14 @@ public class ChiTietHoaDon {
 
     public void setTuyChonJson(String tuyChonJson) {
         this.tuyChonJson = tuyChonJson;
+    }
+
+    public BigDecimal getGiaVonDonVi() {
+        return giaVonDonVi;
+    }
+
+    public void setGiaVonDonVi(BigDecimal giaVonDonVi) {
+        this.giaVonDonVi = giaVonDonVi;
     }
 
     public Long getThoiGianXoa() {

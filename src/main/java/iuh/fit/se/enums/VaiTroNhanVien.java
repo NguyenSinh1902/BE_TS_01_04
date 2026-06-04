@@ -1,3 +1,3 @@
 package iuh.fit.se.enums;
 
-public enum VaiTroNhanVien { ADMIN, THU_NGAN, PHUC_VU }
+public enum VaiTroNhanVien { ADMIN, THU_NGAN, PHUC_VU, PHA_CHE }

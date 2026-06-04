@@ -15,4 +15,7 @@ public interface ThongKeService {
     List<BieuDoDoanhThuResponse> getBieuDoDoanhThuTheoThoiGian(LocalDate tuNgay, LocalDate denNgay, String donVi);
     TopSanPhamResponse getTopSanPhamTheoThoiGian(LocalDate tuNgay, LocalDate denNgay);
     List<PhuongThucThanhToanResponse> getThongKePhuongThucThanhToan(LocalDate tuNgay, LocalDate denNgay);
+    
+    // Nhóm 3: Tài chính
+    java.util.Map<String, Object> layBaoCaoTaiChinhNgay(LocalDate ngay);
 }

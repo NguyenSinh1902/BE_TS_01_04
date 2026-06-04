@@ -89,6 +89,15 @@ public class HoaDon {
     @Column(columnDefinition = "TEXT")
     private String thongTinChiTiet;
 
+    @Column(name = "dia_chi_giao_hang", columnDefinition = "TEXT")
+    private String diaChiGiaoHang;
+
+    @Column(name = "thoi_gian_hen_lay")
+    private LocalDateTime thoiGianHenLay;
+
+    @Column(name = "ghi_chu_khach_hang", columnDefinition = "TEXT")
+    private String ghiChuKhachHang;
+
     @OneToMany(mappedBy = "hoaDon", cascade = CascadeType.ALL, orphanRemoval = true)
     private Set<ChiTietHoaDon> danhSachChiTiet = new LinkedHashSet<>();
 
@@ -288,6 +297,30 @@ public class HoaDon {
 
     public void setThongTinChiTiet(String thongTinChiTiet) {
         this.thongTinChiTiet = thongTinChiTiet;
+    }
+
+    public String getDiaChiGiaoHang() {
+        return diaChiGiaoHang;
+    }
+
+    public void setDiaChiGiaoHang(String diaChiGiaoHang) {
+        this.diaChiGiaoHang = diaChiGiaoHang;
+    }
+
+    public LocalDateTime getThoiGianHenLay() {
+        return thoiGianHenLay;
+    }
+
+    public void setThoiGianHenLay(LocalDateTime thoiGianHenLay) {
+        this.thoiGianHenLay = thoiGianHenLay;
+    }
+
+    public String getGhiChuKhachHang() {
+        return ghiChuKhachHang;
+    }
+
+    public void setGhiChuKhachHang(String ghiChuKhachHang) {
+        this.ghiChuKhachHang = ghiChuKhachHang;
     }
 
     public Set<ChiTietHoaDon> getDanhSachChiTiet() {

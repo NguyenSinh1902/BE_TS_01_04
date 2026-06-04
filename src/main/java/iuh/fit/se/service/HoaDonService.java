@@ -38,11 +38,12 @@ public interface HoaDonService {
 
     HoaDonResponse suaChiTietMon(Integer idHoaDon, Integer idChiTiet, ChiTietHoaDonRequest request);
 
+    HoaDonResponse taoHoaDonKhachHang(iuh.fit.se.dto.khachhang.DatMonKhachRequest request, Integer idKhachHang);
+    HoaDonResponse capNhatTrangThai(Integer idHoaDon, iuh.fit.se.enums.TrangThaiHoaDon trangThaiMoi);
+
     List<HoaDonResponse> layHoaDonTheoLoai(LoaiDonHang loai);
 
     HoaDonResponse xoaMonKhoiHoaDon(Integer idHoaDon, Integer idChiTiet);
-
-    HoaDonResponse capNhatTrangThai(Integer idHoaDon, TrangThaiHoaDon trangThaiMoi);
 
     Page<HoaDonResponse> layLichSuHoaDonKhachHang(Integer idKhachHang, int page, int size);
 
